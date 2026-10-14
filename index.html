@@ -2,32 +2,38 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>台灣生存戰：黑色倖存者 MVP</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; user-select: none; -webkit-user-select: none; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
     .bar-transition { transition: width 0.25s ease-out; }
     @keyframes pulse-fast { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
     .animate-pulse-fast { animation: pulse-fast 1s infinite; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex justify-center">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center sm:p-4">
 
-  <!-- 手機外殼容器 -->
-  <div class="w-full max-w-md bg-slate-900 min-h-screen flex flex-col justify-between border-x border-slate-800 shadow-2xl relative overflow-hidden">
+  <!-- iPhone 18 直向外殼容器 (402px x 874px, 19.5:9 比例) -->
+  <div class="w-full max-w-[402px] h-[100dvh] sm:h-[874px] bg-slate-900 flex flex-col justify-between border border-slate-800 sm:rounded-[44px] shadow-2xl relative overflow-hidden sm:ring-8 sm:ring-slate-900/60">
 
     <!-- ========================================== -->
     <!-- 1. 【遊戲主大廳畫面 (Lobby Screen)】 -->
     <!-- ========================================== -->
     <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-6 text-center">
-      <div class="mt-10">
+      <div class="mt-12">
         <h1 class="text-3xl font-black text-white tracking-wider mb-2">台灣生存戰</h1>
         <p class="text-xs text-indigo-400 font-mono tracking-widest uppercase">Formosa Survival: Battle Royale</p>
       </div>
 
       <div class="space-y-3 my-auto">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-left text-xs text-slate-300 space-y-2 mb-2">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-left text-xs text-slate-300 space-y-2 mb-2">
           <div class="font-bold text-amber-400 mb-1">遊戲玩法簡介：</div>
           <p>1. 點擊場景搜刮物資、合成台灣神裝。</p>
           <p>2. 點擊右下角「移動」展開戰術地圖，只能移動至相鄰區域。</p>
@@ -47,8 +53,8 @@
         </button>
       </div>
 
-      <div class="text-[10px] text-slate-600">
-        Modular Architecture MVP v0.5
+      <div class="text-[10px] text-slate-600 mb-4">
+        iPhone 18 Spec • Modular MVP v0.6
       </div>
     </div>
 
@@ -57,7 +63,7 @@
     <!-- ========================================== -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative">
 
-      <!-- 頂部資訊列：時間、縮圈警告 + 台灣即時戰況廣播 (已調換至此，並移除提示欄) -->
+      <!-- 頂部資訊列：計時 + 台灣即時戰況廣播 -->
       <header class="p-3 bg-slate-950 border-b border-slate-800 sticky top-0 z-10">
         <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
           <span id="game-timer" class="font-mono text-amber-400 font-bold text-sm">00:00</span>
@@ -65,8 +71,8 @@
           <span id="ai-alive" class="bg-slate-800 px-2 py-0.5 rounded text-emerald-400">嗡嗡阿伯：存活</span>
         </div>
 
-        <!-- 台灣即時戰況廣播 (移至頂部) -->
-        <div class="bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col h-[105px]">
+        <!-- 台灣即時戰況廣播 -->
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col h-[95px]">
           <div class="text-[11px] text-slate-500 font-bold mb-1 border-b border-slate-800 pb-1">台灣即時戰況廣播</div>
           <div id="game-log" class="flex-1 overflow-y-auto space-y-1 text-xs font-mono"></div>
         </div>
@@ -76,32 +82,31 @@
       <main class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto relative">
         <div id="craft-alert-box" class="hidden"></div>
 
-        <!-- 探索面板（仿黑色倖存者場景視野 + 右下角快捷行動鍵） -->
+        <!-- 探索面板 -->
         <div id="explore-panel" class="flex-1 flex flex-col justify-between bg-slate-800/40 border border-slate-700/80 rounded-xl p-4 relative min-h-[220px]">
           
-          <!-- 上方：目前所在地區資訊 -->
           <div class="text-left border-b border-slate-700/60 pb-2">
             <div class="text-[11px] text-slate-400 font-mono">CURRENT LOCATION</div>
             <h2 id="zone-title" class="text-2xl font-black text-white tracking-wide">立法院</h2>
             <p id="zone-drops" class="text-xs text-slate-400 mt-1">可搜刮物資：載入中</p>
           </div>
 
-          <!-- 中央偏下：大型搜刮互動區 -->
-          <div class="my-auto py-4">
-            <button id="btn-search" onclick="playerSearch()" class="w-full py-5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-xl text-xl shadow-xl transition tracking-wider">
+          <!-- 搜刮按鈕 -->
+          <div class="my-auto py-3">
+            <button id="btn-search" onclick="playerSearch()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-xl text-lg shadow-xl transition tracking-wider">
               搜刮此區域 (-5 體力)
             </button>
           </div>
 
-          <!-- 右下角：黑色倖存者風格「休息 / 移動」方塊快捷鍵 -->
+          <!-- 右下角方塊按鈕 (休息 / 移動) -->
           <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-800/80">
-            <button onclick="playerRest()" class="w-20 h-16 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-slate-700 rounded-lg flex flex-col items-center justify-center shadow-md transition">
-              <span class="text-sm font-black text-sky-400">休息</span>
+            <button onclick="playerRest()" class="w-20 h-14 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-slate-700 rounded-lg flex flex-col items-center justify-center shadow-md transition">
+              <span class="text-xs font-black text-sky-400">休息</span>
               <span class="text-[10px] text-slate-400 mt-0.5">+25 體力</span>
             </button>
 
-            <button onclick="openMapModal()" class="w-20 h-16 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-lg flex flex-col items-center justify-center shadow-md transition">
-              <span class="text-sm font-black text-amber-400">移動</span>
+            <button onclick="openMapModal()" class="w-20 h-14 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-lg flex flex-col items-center justify-center shadow-md transition">
+              <span class="text-xs font-black text-amber-400">移動</span>
               <span class="text-[10px] text-slate-400 mt-0.5">展開地圖</span>
             </button>
           </div>
@@ -149,27 +154,27 @@
           </div>
         </div>
 
-        <!-- 人物狀態區 (已調換至此，緊貼底部裝備與背包上方) -->
+        <!-- 人物狀態區 (緊接在下方) -->
         <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
           <div class="flex justify-between items-center mb-1.5">
             <div>
-              <span class="font-bold text-base text-white">戰神咆哮哥</span>
+              <span class="font-bold text-sm text-white">戰神咆哮哥</span>
               <span id="player-stats" class="text-xs text-amber-300 ml-2">攻擊 15 | 防禦 5</span>
             </div>
-            <span id="current-zone-badge" class="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">立法院</span>
+            <span id="current-zone-badge" class="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded font-bold">立法院</span>
           </div>
 
           <div class="space-y-1.5 text-xs">
             <div class="flex items-center gap-2">
               <span class="w-8 text-rose-400 font-bold">HP</span>
-              <div class="flex-1 bg-slate-800 h-3.5 rounded-full overflow-hidden">
+              <div class="flex-1 bg-slate-800 h-3 rounded-full overflow-hidden">
                 <div id="hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
               </div>
               <span id="hp-text" class="w-14 text-right font-mono">120/120</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="w-8 text-sky-400 font-bold">體力</span>
-              <div class="flex-1 bg-slate-800 h-3 rounded-full overflow-hidden">
+              <div class="flex-1 bg-slate-800 h-2.5 rounded-full overflow-hidden">
                 <div id="sp-bar" class="bg-sky-500 h-full bar-transition" style="width: 100%"></div>
               </div>
               <span id="sp-text" class="w-14 text-right font-mono">100/100</span>
@@ -179,15 +184,15 @@
       </main>
 
       <!-- 底部裝備與背包 -->
-      <footer class="p-3 bg-slate-950 border-t border-slate-800 space-y-2.5">
+      <footer class="p-3 bg-slate-950 border-t border-slate-800 space-y-2">
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div class="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
             <span class="text-slate-400">武器</span>
-            <span id="equip-weapon" class="font-bold text-amber-400">赤手空拳 (+0)</span>
+            <span id="equip-weapon" class="font-bold text-amber-400 truncate ml-1">赤手空拳 (+0)</span>
           </div>
           <div class="bg-slate-900 border border-slate-800 p-2 rounded flex justify-between items-center">
             <span class="text-slate-400">防具</span>
-            <span id="equip-armor" class="font-bold text-sky-400">布衣 (+0)</span>
+            <span id="equip-armor" class="font-bold text-sky-400 truncate ml-1">布衣 (+0)</span>
           </div>
         </div>
 
@@ -196,13 +201,11 @@
             <span>隨身背包</span>
             <span id="bag-count">0 / 6</span>
           </div>
-          <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[68px]"></div>
+          <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[64px]"></div>
         </div>
       </footer>
 
-      <!-- ========================================== -->
-      <!-- 3. 【黑色倖存者風格：戰術移動地圖覆蓋層 (Map Overlay)】 -->
-      <!-- ========================================== -->
+      <!-- 戰術移動地圖覆蓋層 -->
       <div id="map-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-40 flex flex-col justify-between p-5">
         <div class="flex justify-between items-center border-b border-slate-800 pb-3">
           <div>
@@ -214,12 +217,11 @@
           </button>
         </div>
 
-        <!-- 純文字路線拓樸圖容器 -->
-        <div id="map-nodes-container" class="my-auto py-6 flex flex-col items-center justify-center space-y-2"></div>
+        <div id="map-nodes-container" class="my-auto py-4 flex flex-col items-center justify-center space-y-2"></div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-slate-400 space-y-1">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-400 space-y-1">
           <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-indigo-600 inline-block"></span> <span>藍色：目前所在區域</span></div>
-          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-900 border border-emerald-500 inline-block"></span> <span>綠框：相鄰可移動區域 (點擊直接前往)</span></div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-900 border border-emerald-500 inline-block"></span> <span>綠框：相鄰可移動區域 (點擊前往)</span></div>
           <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-slate-900 border border-slate-800 inline-block"></span> <span>暗灰：不相鄰區域 (需先經過台北車站)</span></div>
         </div>
       </div>
@@ -238,19 +240,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=5 強制破除快取) -->
-  <script src="items_weapon.js?v=5"></script>
-  <script src="items_armor.js?v=5"></script>
-  <script src="items_material.js?v=5"></script>
-  <script src="items_food.js?v=5"></script>
-  <script src="recipes.js?v=5"></script>
-  <script src="maps.js?v=5"></script>
-  <script src="characters.js?v=5"></script>
-  <script src="game_config.js?v=5"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=6 強制破除快取) -->
+  <script src="items_weapon.js?v=6"></script>
+  <script src="items_armor.js?v=6"></script>
+  <script src="items_material.js?v=6"></script>
+  <script src="items_food.js?v=6"></script>
+  <script src="recipes.js?v=6"></script>
+  <script src="maps.js?v=6"></script>
+  <script src="characters.js?v=6"></script>
+  <script src="game_config.js?v=6"></script>
   
-  <script src="lobby.js?v=5"></script>
-  <script src="ai.js?v=5"></script>
-  <script src="combat.js?v=5"></script>
-  <script src="main.js?v=5"></script>
+  <script src="lobby.js?v=6"></script>
+  <script src="ai.js?v=6"></script>
+  <script src="combat.js?v=6"></script>
+  <script src="main.js?v=6"></script>
 </body>
 </html>
