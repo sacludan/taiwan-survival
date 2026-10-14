@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 3 秒搜刮邏輯（無括號乾淨進度條版）
+ * 解除地圖移動限制：全島區域皆可自由直達
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -50,9 +50,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】點擊探索區域進行 3 秒搜刮（消耗 15 體力）！", "text-emerald-400 font-bold");
+    addLog("【測試模式】地圖移動無路線限制，全島自由通行！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！點擊區域搜刮物資！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！地圖解除路線限制！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -272,10 +272,9 @@ function closeMapModal() {
   if (modal) modal.classList.add("hidden");
 }
 
+// 💡 解除路線限制：全島任意區域皆可直接移動直達
 function isAdjacent(fromZoneId, toZoneId) {
-  const fromZone = GAME_DATA.zones.find(z => z.id === fromZoneId);
-  if (!fromZone || !fromZone.neighbors) return true;
-  return fromZone.neighbors.includes(toZoneId);
+  return true;
 }
 
 function moveZone(targetZoneId) {
@@ -292,13 +291,6 @@ function moveZone(targetZoneId) {
     return;
   }
 
-  if (!isAdjacent(p.zone, targetZoneId)) {
-    const currentName = GAME_DATA.zones.find(z => z.id === p.zone).name;
-    const targetName = GAME_DATA.zones.find(z => z.id === targetZoneId).name;
-    addLog(`路線不通！【${currentName}】與【${targetName}】不相鄰，必須先經過「台北車站」！`, "text-rose-400 font-bold");
-    return;
-  }
-
   if (p.sp < 5) {
     addLog("體力不足（需 5 體力），無法移動！", "text-rose-400");
     closeMapModal();
@@ -308,7 +300,7 @@ function moveZone(targetZoneId) {
   p.sp -= 5;
   p.zone = targetZoneId;
   const zName = GAME_DATA.zones.find(z => z.id === targetZoneId).name;
-  addLog(`移動到了【${zName}】。`, "text-indigo-300");
+  addLog(`自由移動到了【${zName}】。`, "text-indigo-300");
 
   closeMapModal();
 
@@ -425,7 +417,7 @@ function handleDropToRed(event) {
 let activeInspectTarget = { type: null, indexOrKey: null };
 
 function inspectBagItem(index) {
-  if (state.gameOver || state.inCombat || state.isSearching) return;
+  if (state.gameOver || state.isSearching) return;
   const p = state.player;
   const itemId = p.bag[index];
   if (!itemId) return;
@@ -438,7 +430,7 @@ function inspectBagItem(index) {
 }
 
 function inspectEquipSlot(slotKey) {
-  if (state.gameOver || state.inCombat || state.isSearching) return;
+  if (state.gameOver || state.isSearching) return;
   const p = state.player;
   let item = null;
   let slotName = "裝備欄位";
@@ -509,10 +501,14 @@ function modalActionUse() {
   const item = GAME_DATA.items[itemId];
   if (!item) return;
 
-  p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
-  p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
+  const healHp = item.hp || 0;
+  const healSp = item.sp || 0;
+
+  p.hp = Math.min(p.maxHp, p.hp + healHp);
+  p.sp = Math.min(p.maxSp, p.sp + healSp);
   p.bag.splice(index, 1);
-  addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
+
+  addLog(`吃掉了【${item.name}】！回復了 ${healHp} 血量與 ${healSp} 體力。`, "text-emerald-400 font-bold");
   closeItemInfoModal();
   updateUI();
 }
@@ -620,10 +616,11 @@ function renderTacticalMap() {
     if (!z) return "";
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
-    const canMove = isAdjacent(p.zone, z.id) && !isClosed && !isCurrent;
+    // 💡 解除路線限制後，地圖節點全部亮起綠框可直接前往
+    const canMove = !isClosed && !isCurrent;
 
     let boxStyle = "bg-slate-900 border-slate-800 text-slate-500";
-    let statusTag = "需轉乘";
+    let statusTag = "自由直達";
 
     if (isCurrent) {
       boxStyle = "bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-950";
@@ -633,7 +630,7 @@ function renderTacticalMap() {
       statusTag = "禁區封鎖";
     } else if (canMove) {
       boxStyle = "bg-emerald-950/90 hover:bg-emerald-900 border-emerald-500 text-emerald-200 cursor-pointer shadow-md";
-      statusTag = "可移動 (-5體)";
+      statusTag = "可前往 (-5體)";
     }
 
     return `
@@ -747,7 +744,7 @@ function updateUI() {
 function endGame(isWin, reason) {
   state.gameOver = true;
   const modal = document.getElementById("gameover-modal");
-  if (modal) modal.classList.add("hidden");
+  if (modal) modal.classList.remove("hidden");
   const icon = document.getElementById("gameover-icon");
   if (icon) icon.textContent = isWin ? "WIN" : "LOSE";
   const title = document.getElementById("gameover-title");
