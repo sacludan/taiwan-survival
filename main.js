@@ -1,7 +1,14 @@
 /**
  * 【模組：核心管家 main.js】
- * 完整無缺漏版
+ * 沙盒開發模式版（已暫停縮圈與 NPC 干擾，方便測試介面與交互）
  */
+
+// 🛠️ 製作人專用開發開關（想恢復正常大逃殺時，把 false 改成 true 即可）
+const DEV_CONFIG = {
+  enableZoneClose: false, // 是否開啟隨機縮圈禁區
+  enableNPC: false        // 是否開啟嗡嗡阿伯 AI 行動與遭遇戰
+};
+
 const state = {
   timeSec: 0,
   nextCloseSec: 45,
@@ -15,7 +22,7 @@ const state = {
 
 // 點擊開始遊戲後由 lobby.js 呼叫
 function initGame() {
-  console.log("initGame 執行中...");
+  console.log("initGame 執行中 (沙盒測試模式)...");
   
   state.timeSec = 0;
   state.nextCloseSec = 45;
@@ -26,10 +33,15 @@ function initGame() {
   state.player = JSON.parse(JSON.stringify(GAME_DATA.initialPlayer));
   state.ai = JSON.parse(JSON.stringify(GAME_DATA.initialAI));
 
+  // 如果關閉 NPC，直接將阿伯設為休眠狀態
+  if (!DEV_CONFIG.enableNPC) {
+    state.ai.alive = false;
+  }
+
   const logEl = document.getElementById("game-log");
   if (logEl) logEl.innerHTML = "";
 
-  addLog("🎮 台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
+  addLog("🛠️ 【沙盒模式】已關閉縮圈與 NPC，請盡情測試搜刮與介面交互！", "text-emerald-400 font-bold");
   updateUI();
   startGameLoop();
 }
@@ -67,30 +79,39 @@ function startGameLoop() {
         timerEl.textContent = `⏱️ ${Math.floor(state.timeSec/60).toString().padStart(2,'0')}:${(state.timeSec%60).toString().padStart(2,'0')}`;
       }
 
-      const remainClose = state.nextCloseSec - state.timeSec;
+      // 縮圈邏輯（受 DEV_CONFIG 控制）
       const warningEl = document.getElementById("zone-warning");
-      if (warningEl && state.closedZones.length < 3) {
-        if (remainClose > 0) {
-          warningEl.textContent = `⚠️ ${remainClose}秒後封鎖下個區域`;
-        } else {
-          const open = GAME_DATA.zones.filter(z => !state.closedZones.includes(z.id));
-          if (open.length > 1) {
-            state.closedZones.push(open[0].id);
-            state.nextCloseSec += 45;
-            addLog(`🚨 【全島緊急廣播】${open[0].name} 已被列為戒嚴禁區！`, "text-rose-500 font-bold");
-            
-            if (state.player.zone === open[0].id) {
-              state.player.hp = Math.max(1, state.player.hp - 25);
-              addLog(`💥 你滯留在禁區內，遭到驅離受到 25 點傷害！`, "text-rose-500 font-bold");
+      if (DEV_CONFIG.enableZoneClose) {
+        const remainClose = state.nextCloseSec - state.timeSec;
+        if (warningEl && state.closedZones.length < 3) {
+          if (remainClose > 0) {
+            warningEl.textContent = `⚠️ ${remainClose}秒後封鎖下個區域`;
+          } else {
+            const open = GAME_DATA.zones.filter(z => !state.closedZones.includes(z.id));
+            if (open.length > 1) {
+              state.closedZones.push(open[0].id);
+              state.nextCloseSec += 45;
+              addLog(`🚨 【全島緊急廣播】${open[0].name} 已被列為戒嚴禁區！`, "text-rose-500 font-bold");
+              
+              if (state.player.zone === open[0].id) {
+                state.player.hp = Math.max(1, state.player.hp - 25);
+                addLog(`💥 你滯留在禁區內，遭到驅離受到 25 點傷害！`, "text-rose-500 font-bold");
+              }
+              updateUI();
             }
-            updateUI();
           }
+        } else if (state.closedZones.length >= 3 && warningEl) {
+          warningEl.textContent = `🔥 最終決戰區！強制死鬥！`;
         }
-      } else if (state.closedZones.length >= 3 && warningEl) {
-        warningEl.textContent = `🔥 最終決戰區！強制死鬥！`;
+      } else {
+        if (warningEl) {
+          warningEl.textContent = `🟢 沙盒模式：無縮圈限制`;
+          warningEl.className = "text-emerald-400 font-semibold";
+        }
       }
 
-      if (state.timeSec % 3 === 0) {
+      // AI 行動邏輯（受 DEV_CONFIG 控制）
+      if (DEV_CONFIG.enableNPC && state.timeSec % 3 === 0) {
         runAIBrain();
       }
     }
@@ -153,10 +174,13 @@ function playerSearch() {
   }
   p.sp -= 5;
   const currentZoneObj = GAME_DATA.zones.find(z => z.id === p.zone);
-  if (state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.45) {
+  
+  // 只有在開啟 NPC 時才會觸發遭遇戰
+  if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.45) {
     startCombat();
     return;
   }
+  
   const dropId = currentZoneObj.drops[Math.floor(Math.random() * currentZoneObj.drops.length)];
   const item = GAME_DATA.items[dropId];
 
@@ -193,7 +217,10 @@ function moveZone(targetZoneId) {
   p.zone = targetZoneId;
   const zName = GAME_DATA.zones.find(z => z.id === targetZoneId).name;
   addLog(`🚶 移動到了【${zName}】。`, "text-indigo-300");
-  if (state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.6) startCombat();
+  
+  if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.6) {
+    startCombat();
+  }
   updateUI();
 }
 
@@ -226,6 +253,12 @@ function useBagItem(index) {
 function updateUI() {
   if (!state.player || !state.ai || typeof GAME_DATA === 'undefined') return;
   const p = state.player; const ai = state.ai;
+
+  const aiAliveEl = document.getElementById("ai-alive");
+  if (aiAliveEl) {
+    aiAliveEl.textContent = DEV_CONFIG.enableNPC ? (ai.alive ? "🤖 嗡嗡阿伯：存活" : "🤖 嗡嗡阿伯：淘汰") : "🤖 NPC：已休眠";
+    aiAliveEl.className = DEV_CONFIG.enableNPC ? "bg-slate-800 px-2 py-0.5 rounded text-emerald-400" : "bg-slate-800 px-2 py-0.5 rounded text-slate-500";
+  }
 
   const statEl = document.getElementById("player-stats");
   if (statEl) statEl.textContent = `⚔️ 攻擊 ${getTotalAtk(p)} | 🛡️ 防禦 ${getTotalDef(p)}`;
