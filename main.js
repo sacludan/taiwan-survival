@@ -23,7 +23,7 @@ function initGame(isSandbox = false) {
   DEV_CONFIG.enableNPC = !isSandbox;
 
   state.timeSec = 0;
-  state.nextCloseSec: 45;
+  state.nextCloseSec = 45;
   state.closedZones = [];
   state.inCombat = false;
   state.clashProgress = 0;
