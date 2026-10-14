@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 實現點擊區域 3 秒搜刮讀條、期間鎖定動作與消耗 15 體力機制
+ * 3 秒搜刮邏輯（無括號乾淨進度條版）
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -23,7 +23,7 @@ const state = {
   inCombat: false,
   clashProgress: 0,
   gameOver: false,
-  isSearching: false, // 是否正在進行 3 秒搜刮讀條
+  isSearching: false,
   player: null,
   ai: null
 };
@@ -191,11 +191,10 @@ function triggerSearch() {
   const p = state.player;
 
   if (p.sp < 15) {
-    addLog("體力不足（小於 15），無法搜刮！請稍候自動回復。", "text-rose-400");
+    addLog("體力不足（小於 15），無法搜刮！", "text-rose-400");
     return;
   }
 
-  // 扣除 15 點體力並進入 3 秒搜刮鎖定狀態
   p.sp -= 15;
   state.isSearching = true;
   updateUI();
@@ -204,7 +203,10 @@ function triggerSearch() {
   const progressBox = document.getElementById("search-progress-box");
   const progressBar = document.getElementById("search-progress-bar");
 
-  if (promptText) promptText.textContent = "🔍 搜刮中 (請專注 3 秒)...";
+  if (promptText) {
+    promptText.textContent = "🔍 搜刮中...";
+    promptText.classList.remove("hidden");
+  }
   if (progressBox) progressBox.classList.remove("hidden");
   if (progressBar) progressBar.style.width = "0%";
 
@@ -219,9 +221,8 @@ function triggerSearch() {
       state.isSearching = false;
 
       if (progressBox) progressBox.classList.add("hidden");
-      if (promptText) promptText.textContent = "🔍 點擊此處搜刮區域 (-15體)";
+      if (promptText) promptText.classList.add("hidden");
 
-      // 3 秒結束後結算物資或遭遇戰
       executeSearchFinish();
     }
   }, 100);
@@ -241,22 +242,22 @@ function executeSearchFinish() {
 
   if (item.type === "weapon" && !p.weapon) {
     p.weapon = item;
-    addLog(`搜刮完畢！拿到並裝備【${item.name} (+${item.atk}攻)】！`, "text-amber-300");
+    addLog(`搜刮獲得並裝備【${item.name} (+${item.atk}攻)】！`, "text-amber-300");
   } else if (item.type === "armor" && !p.armor) {
     p.armor = item;
-    addLog(`搜刮完畢！拿到並穿戴【${item.name} (+${item.def}防)】！`, "text-sky-300");
+    addLog(`搜刮獲得並穿戴【${item.name} (+${item.def}防)】！`, "text-sky-300");
   } else if (p.bag.length < 6) {
     p.bag.push(dropId);
-    addLog(`搜刮完畢！獲得【${item.name}】！`, "text-emerald-300");
+    addLog(`搜刮獲得【${item.name}】！`, "text-emerald-300");
   } else {
-    addLog(`搜刮完畢，但背包已滿（6/6），錯過了【${item.name}】！`, "text-rose-400");
+    addLog(`背包已滿（6/6），錯過了【${item.name}】！`, "text-rose-400");
   }
   updateUI();
 }
 
 function openMapModal() {
   if (state.gameOver || state.inCombat || state.isSearching) {
-    if (state.isSearching) addLog("正在專注搜刮中，無法移動！", "text-rose-400");
+    if (state.isSearching) addLog("搜刮中，無法移動！", "text-rose-400");
     return;
   }
   const modal = document.getElementById("map-modal");
@@ -323,7 +324,7 @@ function moveZone(targetZoneId) {
 let draggedBagIndex = null;
 
 function handleDragStart(event, index) {
-  if (state.isSearching) return; // 搜刮中鎖定背包拖曳
+  if (state.isSearching) return;
   draggedBagIndex = index;
   event.dataTransfer.setData("text/plain", index);
 }
@@ -746,7 +747,7 @@ function updateUI() {
 function endGame(isWin, reason) {
   state.gameOver = true;
   const modal = document.getElementById("gameover-modal");
-  if (modal) modal.classList.remove("hidden");
+  if (modal) modal.classList.add("hidden");
   const icon = document.getElementById("gameover-icon");
   if (icon) icon.textContent = isWin ? "WIN" : "LOSE";
   const title = document.getElementById("gameover-title");
