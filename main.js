@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 實現每 3 秒自動回復 5 點體力機制，並移除手動休息按鈕
+ * 支援拖曳時黃區與紅區的動態高亮反饋，並保持背包格內乾淨簡約
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -48,9 +48,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】體力每 3 秒自動回復 5 點，右上方可點擊移動！", "text-emerald-400 font-bold");
+    addLog("【測試模式】介面已精簡，拖曳時黃區/紅區會動態高亮！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！體力將隨時間自動恢復！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！體力每 3 秒自動回復！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -86,7 +86,6 @@ function startGameLoop() {
       state.timeSec++;
       if (state.player.skillCd > 0) state.player.skillCd--;
 
-      // 每 3 秒自動回復 5 點體力
       if (state.timeSec % 3 === 0) {
         if (state.player.sp < state.player.maxSp) {
           state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
@@ -276,7 +275,7 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
-// 【拖曳互動與智慧裝備置換系統】
+// 【拖曳互動與動態高亮反饋系統】
 // ==========================================
 let draggedBagIndex = null;
 
@@ -285,12 +284,22 @@ function handleDragStart(event, index) {
   event.dataTransfer.setData("text/plain", index);
 }
 
-function allowDrop(event) {
+function handleDragOverYellow(event) {
   event.preventDefault();
+  const yellowBox = document.getElementById("drop-zone-yellow");
+  if (yellowBox) yellowBox.classList.add("drag-over-yellow");
+}
+
+function handleDragLeaveYellow(event) {
+  const yellowBox = document.getElementById("drop-zone-yellow");
+  if (yellowBox) yellowBox.classList.remove("drag-over-yellow");
 }
 
 function handleDropToYellow(event) {
   event.preventDefault();
+  const yellowBox = document.getElementById("drop-zone-yellow");
+  if (yellowBox) yellowBox.classList.remove("drag-over-yellow");
+
   if (draggedBagIndex === null || !state.player) return;
   const p = state.player;
   const item = GAME_DATA.items[p.bag[draggedBagIndex]];
@@ -302,8 +311,22 @@ function handleDropToYellow(event) {
   updateUI();
 }
 
+function handleDragOverRed(event) {
+  event.preventDefault();
+  const redBox = document.getElementById("drop-zone-red");
+  if (redBox) redBox.classList.add("drag-over-red");
+}
+
+function handleDragLeaveRed(event) {
+  const redBox = document.getElementById("drop-zone-red");
+  if (redBox) redBox.classList.remove("drag-over-red");
+}
+
 function handleDropToRed(event) {
   event.preventDefault();
+  const redBox = document.getElementById("drop-zone-red");
+  if (redBox) redBox.classList.remove("drag-over-red");
+
   if (draggedBagIndex === null || !state.player) return;
   const p = state.player;
   const index = draggedBagIndex;
@@ -497,7 +520,7 @@ function modalActionUnequip() {
 
   if (slotKey === 'weapon' && p.weapon) {
     p.bag.push(p.weapon.id);
-    addLog(`卸下武器【${p.weapon.name}】閥，已收回背包。`, "text-slate-400");
+    addLog(`卸下武器【${p.weapon.name}】，已收回背包。`, "text-slate-400");
     p.weapon = null;
   } else if (slotKey === 'head' && p.armor) {
     p.bag.push(p.armor.id);
@@ -595,12 +618,6 @@ function updateUI() {
   if (!state.player || !state.ai || typeof GAME_DATA === 'undefined') return;
   const p = state.player; const ai = state.ai;
 
-  const aiAliveEl = document.getElementById("ai-alive");
-  if (aiAliveEl) {
-    aiAliveEl.textContent = DEV_CONFIG.enableNPC ? (ai.alive ? "嗡嗡阿伯：存活" : "嗡嗡阿伯：淘汰") : "NPC：已休眠";
-    aiAliveEl.className = DEV_CONFIG.enableNPC ? "bg-slate-800 px-2 py-0.5 rounded text-emerald-400" : "bg-slate-800 px-2 py-0.5 rounded text-slate-500";
-  }
-
   const statEl = document.getElementById("player-stats");
   if (statEl) statEl.textContent = `攻擊 ${getTotalAtk(p)} | 防禦 ${getTotalDef(p)}`;
 
@@ -672,9 +689,8 @@ function updateUI() {
         const it = GAME_DATA.items[p.bag[i]];
         const itemName = it ? it.name : p.bag[i];
         return `
-          <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="inspectBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-14 transition flex flex-col justify-center cursor-grab active:cursor-grabbing select-none">
+          <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="inspectBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-2 text-left h-14 transition flex flex-col justify-center cursor-grab active:cursor-grabbing select-none">
             <div class="text-xs font-bold truncate text-slate-100">${itemName}</div>
-            <div class="text-[9px] text-amber-400 mt-0.5">點擊詳情 / 拖曳</div>
           </div>
         `;
       }
