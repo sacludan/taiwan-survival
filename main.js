@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 裝備欄位改為純圖示；點擊裝備與隨身背包均可跳出包含台灣幹話描述的詳細檢視彈窗
+ * 實現每 3 秒自動回復 5 點體力機制，並移除手動休息按鈕
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -48,9 +48,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】點擊裝備欄位或背包物品，即可查看幹話與詳細描述！", "text-emerald-400 font-bold");
+    addLog("【測試模式】體力每 3 秒自動回復 5 點，右上方可點擊移動！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！體力將隨時間自動恢復！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -85,6 +85,14 @@ function startGameLoop() {
     if (tickCount % 10 === 0) {
       state.timeSec++;
       if (state.player.skillCd > 0) state.player.skillCd--;
+
+      // 每 3 秒自動回復 5 點體力
+      if (state.timeSec % 3 === 0) {
+        if (state.player.sp < state.player.maxSp) {
+          state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
+          updateUI();
+        }
+      }
 
       const timerEl = document.getElementById("game-timer");
       if (timerEl) {
@@ -174,23 +182,11 @@ function craftItem(unit, recipe, isPlayer = true) {
   updateUI();
 }
 
-function playerRest() {
-  if (state.gameOver || state.inCombat || !state.player) return;
-  const p = state.player;
-  if (p.sp >= p.maxSp) {
-    addLog("體力已經是滿的，不需要休息！", "text-slate-400");
-    return;
-  }
-  p.sp = Math.min(p.maxSp, p.sp + 25);
-  addLog("原地坐下休息，回復了 25 點體力。", "text-sky-300");
-  updateUI();
-}
-
 function playerSearch() {
   if (state.gameOver || state.inCombat || !state.player) return;
   const p = state.player;
   if (p.sp < 5) {
-    addLog("體力不足！請點擊右下角「休息」回復體力。", "text-rose-400");
+    addLog("體力不足（小於 5），請稍候自動回復或吃食物！", "text-rose-400");
     return;
   }
   p.sp -= 5;
@@ -261,7 +257,7 @@ function moveZone(targetZoneId) {
   }
 
   if (p.sp < 5) {
-    addLog("體力不足（需 5 體力），無法移動！請先休息。", "text-rose-400");
+    addLog("體力不足（需 5 體力），無法移動！請稍候自動回復。", "text-rose-400");
     closeMapModal();
     return;
   }
@@ -360,7 +356,6 @@ function handleDropToRed(event) {
 // ==========================================
 let activeInspectTarget = { type: null, indexOrKey: null };
 
-// 點擊背包物品
 function inspectBagItem(index) {
   if (state.gameOver || !state.player) return;
   const p = state.player;
@@ -374,7 +369,6 @@ function inspectBagItem(index) {
   showItemInfoModal(item, '隨身背包物品', true);
 }
 
-// 點擊右側裝備欄位
 function inspectEquipSlot(slotKey) {
   if (state.gameOver || !state.player) return;
   const p = state.player;
@@ -408,7 +402,6 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   if (catEl) catEl.textContent = categoryText;
   if (nameEl) nameEl.textContent = item.name;
 
-  // 屬性與功能顯示
   let statStr = "";
   if (item.type === "weapon") statStr = `攻擊力 +${item.atk}`;
   else if (item.type === "armor") statStr = `防禦力 +${item.def}`;
@@ -416,10 +409,8 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   else statStr = `素材道具`;
   if (statEl) statEl.textContent = statStr;
 
-  // 幹話描述
   if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資，據說藏有不可告人的祕密。";
 
-  // 動態按鈕
   let buttonsHTML = "";
   if (isFromBag) {
     if (item.type === "weapon" || item.type === "armor") {
@@ -429,7 +420,6 @@ function showItemInfoModal(item, categoryText, isFromBag) {
     }
     buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
   } else {
-    // 裝備中狀態，提供解除裝備
     buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (放回背包)</button>`;
   }
 
@@ -443,7 +433,6 @@ function closeItemInfoModal(event) {
   activeInspectTarget = { type: null, indexOrKey: null };
 }
 
-// 彈窗內按鈕動作
 function modalActionUse() {
   if (activeInspectTarget.type !== 'bag') return;
   const p = state.player;
@@ -508,7 +497,7 @@ function modalActionUnequip() {
 
   if (slotKey === 'weapon' && p.weapon) {
     p.bag.push(p.weapon.id);
-    addLog(`卸下武器【${p.weapon.name}】，已收回背包。`, "text-slate-400");
+    addLog(`卸下武器【${p.weapon.name}】閥，已收回背包。`, "text-slate-400");
     p.weapon = null;
   } else if (slotKey === 'head' && p.armor) {
     p.bag.push(p.armor.id);
@@ -522,7 +511,6 @@ function modalActionUnequip() {
 
 // ==========================================
 
-// 渲染右側 6 格裝備欄（平時不顯示文字，只顯示精緻剪影圖示與裝備狀態）
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
@@ -538,7 +526,6 @@ function renderEquipSixGrid(p) {
 
   gridEl.innerHTML = slots.map(s => {
     if (s.item) {
-      // 有裝備時：只顯示圖示與小光點，點擊可檢視幹話與詳細資訊
       return `
         <div onclick="inspectEquipSlot('${s.key}')" class="h-10 rounded border ${s.activeColor} flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
           ${s.svg}
@@ -546,7 +533,6 @@ function renderEquipSixGrid(p) {
         </div>
       `;
     }
-    // 空槽位
     return `
       <div class="h-10 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-60" title="${s.label} (空)">
         ${s.svg}
@@ -700,7 +686,7 @@ function updateUI() {
 function endGame(isWin, reason) {
   state.gameOver = true;
   const modal = document.getElementById("gameover-modal");
-  if (modal) modal.classList.add("hidden");
+  if (modal) modal.classList.remove("hidden");
   const icon = document.getElementById("gameover-icon");
   if (icon) icon.textContent = isWin ? "WIN" : "LOSE";
   const title = document.getElementById("gameover-title");
