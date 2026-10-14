@@ -2,8 +2,9 @@
  * 【模組：遊戲主大廳 lobby.js】
  */
 const LobbyManager = {
-  startGame() {
-    console.log("大廳：開始遊戲按鈕被點擊");
+  // isSandbox 為 true 時進入無人無縮圈測試模式，為 false 時進入正常對戰
+  startGame(isSandbox = false) {
+    console.log("大廳啟動遊戲，是否為測試模式：", isSandbox);
     
     // 1. 隱藏大廳畫面
     const lobbyScreen = document.getElementById("lobby-screen");
@@ -13,9 +14,9 @@ const LobbyManager = {
     const gameScreen = document.getElementById("game-screen");
     if (gameScreen) gameScreen.classList.remove("hidden");
 
-    // 3. 呼叫 main.js 的遊戲初始化與計時器啟動
+    // 3. 呼叫 main.js 的遊戲初始化，並把模式參數傳過去
     if (typeof initGame === "function") {
-      initGame();
+      initGame(isSandbox);
     } else {
       console.error("找不到 initGame 函式！");
     }
