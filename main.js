@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 支援拖曳時黃區與紅區的動態高亮反饋，並保持背包格內乾淨簡約
+ * 實現點擊區域 3 秒搜刮讀條、期間鎖定動作與消耗 15 體力機制
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -23,6 +23,7 @@ const state = {
   inCombat: false,
   clashProgress: 0,
   gameOver: false,
+  isSearching: false, // 是否正在進行 3 秒搜刮讀條
   player: null,
   ai: null
 };
@@ -37,6 +38,7 @@ function initGame(isSandbox = false) {
   state.inCombat = false;
   state.clashProgress = 0;
   state.gameOver = false;
+  state.isSearching = false;
   state.player = JSON.parse(JSON.stringify(GAME_DATA.initialPlayer));
   state.ai = JSON.parse(JSON.stringify(GAME_DATA.initialAI));
 
@@ -48,9 +50,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】介面已精簡，拖曳時黃區/紅區會動態高亮！", "text-emerald-400 font-bold");
+    addLog("【測試模式】點擊探索區域進行 3 秒搜刮（消耗 15 體力）！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！體力每 3 秒自動回復！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！點擊區域搜刮物資！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -181,41 +183,82 @@ function craftItem(unit, recipe, isPlayer = true) {
   updateUI();
 }
 
-function playerSearch() {
-  if (state.gameOver || state.inCombat || !state.player) return;
+// ==========================================
+// 【3 秒搜刮讀條與動作鎖定系統】
+// ==========================================
+function triggerSearch() {
+  if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
-  if (p.sp < 5) {
-    addLog("體力不足（小於 5），請稍候自動回復或吃食物！", "text-rose-400");
+
+  if (p.sp < 15) {
+    addLog("體力不足（小於 15），無法搜刮！請稍候自動回復。", "text-rose-400");
     return;
   }
-  p.sp -= 5;
+
+  // 扣除 15 點體力並進入 3 秒搜刮鎖定狀態
+  p.sp -= 15;
+  state.isSearching = true;
+  updateUI();
+
+  const promptText = document.getElementById("search-prompt-text");
+  const progressBox = document.getElementById("search-progress-box");
+  const progressBar = document.getElementById("search-progress-bar");
+
+  if (promptText) promptText.textContent = "🔍 搜刮中 (請專注 3 秒)...";
+  if (progressBox) progressBox.classList.remove("hidden");
+  if (progressBar) progressBar.style.width = "0%";
+
+  let elapsed = 0;
+  const searchInterval = setInterval(() => {
+    elapsed += 100;
+    const percent = (elapsed / 3000) * 100;
+    if (progressBar) progressBar.style.width = `${percent}%`;
+
+    if (elapsed >= 3000) {
+      clearInterval(searchInterval);
+      state.isSearching = false;
+
+      if (progressBox) progressBox.classList.add("hidden");
+      if (promptText) promptText.textContent = "🔍 點擊此處搜刮區域 (-15體)";
+
+      // 3 秒結束後結算物資或遭遇戰
+      executeSearchFinish();
+    }
+  }, 100);
+}
+
+function executeSearchFinish() {
+  const p = state.player;
   const currentZoneObj = GAME_DATA.zones.find(z => z.id === p.zone);
-  
+
   if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.45) {
     startCombat();
     return;
   }
-  
+
   const dropId = currentZoneObj.drops[Math.floor(Math.random() * currentZoneObj.drops.length)];
   const item = GAME_DATA.items[dropId];
 
   if (item.type === "weapon" && !p.weapon) {
     p.weapon = item;
-    addLog(`搜到並拿起【${item.name} (+${item.atk}攻)】！`, "text-amber-300");
+    addLog(`搜刮完畢！拿到並裝備【${item.name} (+${item.atk}攻)】！`, "text-amber-300");
   } else if (item.type === "armor" && !p.armor) {
     p.armor = item;
-    addLog(`搜到並戴上【${item.name} (+${item.def}防)】！`, "text-sky-300");
+    addLog(`搜刮完畢！拿到並穿戴【${item.name} (+${item.def}防)】！`, "text-sky-300");
   } else if (p.bag.length < 6) {
     p.bag.push(dropId);
-    addLog(`搜刮到【${item.name}】！`, "text-emerald-300");
+    addLog(`搜刮完畢！獲得【${item.name}】！`, "text-emerald-300");
   } else {
-    addLog(`背包已滿（6/6），請先使用或丟棄物品！`, "text-rose-400");
+    addLog(`搜刮完畢，但背包已滿（6/6），錯過了【${item.name}】！`, "text-rose-400");
   }
   updateUI();
 }
 
 function openMapModal() {
-  if (state.gameOver || state.inCombat) return;
+  if (state.gameOver || state.inCombat || state.isSearching) {
+    if (state.isSearching) addLog("正在專注搜刮中，無法移動！", "text-rose-400");
+    return;
+  }
   const modal = document.getElementById("map-modal");
   if (modal) {
     modal.classList.remove("hidden");
@@ -235,7 +278,7 @@ function isAdjacent(fromZoneId, toZoneId) {
 }
 
 function moveZone(targetZoneId) {
-  if (state.gameOver || state.inCombat || !state.player) return;
+  if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
 
   if (p.zone === targetZoneId) {
@@ -256,7 +299,7 @@ function moveZone(targetZoneId) {
   }
 
   if (p.sp < 5) {
-    addLog("體力不足（需 5 體力），無法移動！請稍候自動回復。", "text-rose-400");
+    addLog("體力不足（需 5 體力），無法移動！", "text-rose-400");
     closeMapModal();
     return;
   }
@@ -280,6 +323,7 @@ function moveZone(targetZoneId) {
 let draggedBagIndex = null;
 
 function handleDragStart(event, index) {
+  if (state.isSearching) return; // 搜刮中鎖定背包拖曳
   draggedBagIndex = index;
   event.dataTransfer.setData("text/plain", index);
 }
@@ -300,7 +344,7 @@ function handleDropToYellow(event) {
   const yellowBox = document.getElementById("drop-zone-yellow");
   if (yellowBox) yellowBox.classList.remove("drag-over-yellow");
 
-  if (draggedBagIndex === null || !state.player) return;
+  if (state.isSearching || draggedBagIndex === null || !state.player) return;
   const p = state.player;
   const item = GAME_DATA.items[p.bag[draggedBagIndex]];
   const itemName = item ? item.name : p.bag[draggedBagIndex];
@@ -327,7 +371,7 @@ function handleDropToRed(event) {
   const redBox = document.getElementById("drop-zone-red");
   if (redBox) redBox.classList.remove("drag-over-red");
 
-  if (draggedBagIndex === null || !state.player) return;
+  if (state.isSearching || draggedBagIndex === null || !state.player) return;
   const p = state.player;
   const index = draggedBagIndex;
   const itemId = p.bag[index];
@@ -380,7 +424,7 @@ function handleDropToRed(event) {
 let activeInspectTarget = { type: null, indexOrKey: null };
 
 function inspectBagItem(index) {
-  if (state.gameOver || !state.player) return;
+  if (state.gameOver || state.inCombat || state.isSearching) return;
   const p = state.player;
   const itemId = p.bag[index];
   if (!itemId) return;
@@ -393,7 +437,7 @@ function inspectBagItem(index) {
 }
 
 function inspectEquipSlot(slotKey) {
-  if (state.gameOver || !state.player) return;
+  if (state.gameOver || state.inCombat || state.isSearching) return;
   const p = state.player;
   let item = null;
   let slotName = "裝備欄位";
