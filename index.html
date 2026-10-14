@@ -48,7 +48,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        Modular Architecture MVP v0.4
+        Modular Architecture MVP v0.5
       </div>
     </div>
 
@@ -57,7 +57,7 @@
     <!-- ========================================== -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative">
 
-      <!-- 頂部資訊列 -->
+      <!-- 頂部資訊列：時間、縮圈警告 + 台灣即時戰況廣播 (已調換至此，並移除提示欄) -->
       <header class="p-3 bg-slate-950 border-b border-slate-800 sticky top-0 z-10">
         <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
           <span id="game-timer" class="font-mono text-amber-400 font-bold text-sm">00:00</span>
@@ -65,39 +65,14 @@
           <span id="ai-alive" class="bg-slate-800 px-2 py-0.5 rounded text-emerald-400">嗡嗡阿伯：存活</span>
         </div>
 
-        <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-          <div class="flex justify-between items-center mb-1.5">
-            <div>
-              <span class="font-bold text-base text-white">戰神咆哮哥</span>
-              <span id="player-stats" class="text-xs text-amber-300 ml-2">攻擊 15 | 防禦 5</span>
-            </div>
-            <span id="current-zone-badge" class="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">立法院</span>
-          </div>
-
-          <div class="space-y-1.5 text-xs">
-            <div class="flex items-center gap-2">
-              <span class="w-8 text-rose-400 font-bold">HP</span>
-              <div class="flex-1 bg-slate-800 h-3.5 rounded-full overflow-hidden">
-                <div id="hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
-              </div>
-              <span id="hp-text" class="w-14 text-right font-mono">120/120</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-8 text-sky-400 font-bold">體力</span>
-              <div class="flex-1 bg-slate-800 h-3 rounded-full overflow-hidden">
-                <div id="sp-bar" class="bg-sky-500 h-full bar-transition" style="width: 100%"></div>
-              </div>
-              <span id="sp-text" class="w-14 text-right font-mono">100/100</span>
-            </div>
-          </div>
-        </div>
-
-        <div id="guide-banner" class="mt-2 bg-indigo-950/80 border border-indigo-700/60 rounded px-2.5 py-1.5 text-xs text-indigo-200 flex justify-between items-center">
-          <span id="guide-text">導航載入中...</span>
+        <!-- 台灣即時戰況廣播 (移至頂部) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col h-[105px]">
+          <div class="text-[11px] text-slate-500 font-bold mb-1 border-b border-slate-800 pb-1">台灣即時戰況廣播</div>
+          <div id="game-log" class="flex-1 overflow-y-auto space-y-1 text-xs font-mono"></div>
         </div>
       </header>
 
-      <!-- 中央主場景與側邊快捷欄 -->
+      <!-- 中央主場景與下方人物狀態 -->
       <main class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto relative">
         <div id="craft-alert-box" class="hidden"></div>
 
@@ -174,10 +149,32 @@
           </div>
         </div>
 
-        <!-- 即時戰況轉播室 -->
-        <div class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 flex flex-col h-[125px]">
-          <div class="text-[11px] text-slate-500 font-bold mb-1 border-b border-slate-900 pb-1">台灣即時戰況廣播</div>
-          <div id="game-log" class="flex-1 overflow-y-auto space-y-1 text-xs font-mono"></div>
+        <!-- 人物狀態區 (已調換至此，緊貼底部裝備與背包上方) -->
+        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+          <div class="flex justify-between items-center mb-1.5">
+            <div>
+              <span class="font-bold text-base text-white">戰神咆哮哥</span>
+              <span id="player-stats" class="text-xs text-amber-300 ml-2">攻擊 15 | 防禦 5</span>
+            </div>
+            <span id="current-zone-badge" class="text-xs bg-indigo-600 text-white px-2.5 py-1 rounded font-bold">立法院</span>
+          </div>
+
+          <div class="space-y-1.5 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-8 text-rose-400 font-bold">HP</span>
+              <div class="flex-1 bg-slate-800 h-3.5 rounded-full overflow-hidden">
+                <div id="hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
+              </div>
+              <span id="hp-text" class="w-14 text-right font-mono">120/120</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-8 text-sky-400 font-bold">體力</span>
+              <div class="flex-1 bg-slate-800 h-3 rounded-full overflow-hidden">
+                <div id="sp-bar" class="bg-sky-500 h-full bar-transition" style="width: 100%"></div>
+              </div>
+              <span id="sp-text" class="w-14 text-right font-mono">100/100</span>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -218,9 +215,7 @@
         </div>
 
         <!-- 純文字路線拓樸圖容器 -->
-        <div id="map-nodes-container" class="my-auto py-6 flex flex-col items-center justify-center space-y-2">
-          <!-- 由 main.js 動態渲染具有連線邏輯的純文字地圖節點 -->
-        </div>
+        <div id="map-nodes-container" class="my-auto py-6 flex flex-col items-center justify-center space-y-2"></div>
 
         <div class="bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-slate-400 space-y-1">
           <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-indigo-600 inline-block"></span> <span>藍色：目前所在區域</span></div>
@@ -243,19 +238,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=4 強制破除快取) -->
-  <script src="items_weapon.js?v=4"></script>
-  <script src="items_armor.js?v=4"></script>
-  <script src="items_material.js?v=4"></script>
-  <script src="items_food.js?v=4"></script>
-  <script src="recipes.js?v=4"></script>
-  <script src="maps.js?v=4"></script>
-  <script src="characters.js?v=4"></script>
-  <script src="game_config.js?v=4"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=5 強制破除快取) -->
+  <script src="items_weapon.js?v=5"></script>
+  <script src="items_armor.js?v=5"></script>
+  <script src="items_material.js?v=5"></script>
+  <script src="items_food.js?v=5"></script>
+  <script src="recipes.js?v=5"></script>
+  <script src="maps.js?v=5"></script>
+  <script src="characters.js?v=5"></script>
+  <script src="game_config.js?v=5"></script>
   
-  <script src="lobby.js?v=4"></script>
-  <script src="ai.js?v=4"></script>
-  <script src="combat.js?v=4"></script>
-  <script src="main.js?v=4"></script>
+  <script src="lobby.js?v=5"></script>
+  <script src="ai.js?v=5"></script>
+  <script src="combat.js?v=5"></script>
+  <script src="main.js?v=5"></script>
 </body>
 </html>
