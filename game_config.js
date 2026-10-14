@@ -3,16 +3,16 @@
  */
 const GAME_DATA = {
   zones: (typeof MAPS_DATA !== 'undefined' && MAPS_DATA.zones) ? MAPS_DATA.zones : [
-    { id: "ly", name: "🏛️ 立法院", drops: ["folding_chair", "megaphone", "water_balloon", "tape"] },
-    { id: "shilin", name: "🍢 士林夜市", drops: ["sausage", "rice_sausage", "bubble_tea", "stinky_tofu"] },
-    { id: "hsinchu", name: "🏭 竹科科技廠", drops: ["iron_nail", "battery", "wafer", "helmet"] },
-    { id: "taipei_main", name: "🚉 台北車站", drops: ["iron_nail", "helmet", "tape", "bento"] }
+    { id: "shilin", name: "士林夜市", neighbors: ["taipei_main"], drops: ["sausage", "rice_sausage", "bubble_tea", "stinky_tofu"] },
+    { id: "taipei_main", name: "台北車站", neighbors: ["shilin", "ly", "hsinchu"], drops: ["iron_nail", "helmet", "tape", "bento"] },
+    { id: "ly", name: "立法院", neighbors: ["taipei_main"], drops: ["folding_chair", "megaphone", "water_balloon", "tape"] },
+    { id: "hsinchu", name: "竹科科技廠", neighbors: ["taipei_main"], drops: ["iron_nail", "battery", "wafer", "helmet"] }
   ],
   initialPlayer: (typeof CHARACTERS_DATA !== 'undefined' && CHARACTERS_DATA.initialPlayer) ? CHARACTERS_DATA.initialPlayer : {
-    name: "🗣️ 戰神咆哮哥", hp: 120, maxHp: 120, sp: 100, maxSp: 100, baseAtk: 15, baseDef: 5, zone: "ly", weapon: null, armor: null, bag: ["bubble_tea"], skillCd: 0
+    name: "戰神咆哮哥", hp: 120, maxHp: 120, sp: 100, maxSp: 100, baseAtk: 15, baseDef: 5, zone: "ly", weapon: null, armor: null, bag: ["bubble_tea"], skillCd: 0
   },
   initialAI: (typeof CHARACTERS_DATA !== 'undefined' && CHARACTERS_DATA.initialAI) ? CHARACTERS_DATA.initialAI : {
-    name: "🐝 嗡嗡阿伯", hp: 130, maxHp: 130, baseAtk: 14, baseDef: 6, zone: "hsinchu", weapon: null, armor: null, bag: ["bento"], stunned: 0, alive: true, wishlist: ["helmet", "tape", "folding_chair", "iron_nail"]
+    name: "嗡嗡阿伯", hp: 130, maxHp: 130, baseAtk: 14, baseDef: 6, zone: "hsinchu", weapon: null, armor: null, bag: ["bento"], stunned: 0, alive: true, wishlist: ["helmet", "tape", "folding_chair", "iron_nail"]
   },
   recipes: (typeof RECIPES_DATA !== 'undefined' && RECIPES_DATA.recipes) ? RECIPES_DATA.recipes : [
     { result: "king_chair", materials: ["folding_chair", "iron_nail"], desc: "折凳 + 生鏽鐵釘 = 攻擊+28" },
