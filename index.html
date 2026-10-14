@@ -68,7 +68,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone 18 Ratio (402x874) • MVP v0.11
+        iPhone 18 Ratio (402x874) • MVP v0.12
       </div>
     </div>
 
@@ -96,7 +96,7 @@
       <main class="flex-1 p-3 flex flex-col justify-between gap-2.5 overflow-hidden relative">
         <div id="craft-alert-box" class="hidden"></div>
 
-        <!-- 【黃色區域：拖曳至此丟棄】探索面板 (黃色外框僅示意，實際具備 Drop 接收功能) -->
+        <!-- 【黃色區域：拖曳至此丟棄】探索面板 -->
         <div id="drop-zone-yellow" ondragover="allowDrop(event)" ondrop="handleDropToYellow(event)" class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-4 relative transition">
           
           <div class="text-left border-b border-slate-700/60 pb-2">
@@ -214,7 +214,7 @@
         <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[68px]"></div>
       </footer>
 
-      <!-- 物品操作選單懸浮視窗 (保留點擊操作) -->
+      <!-- 物品操作選單懸浮視窗 -->
       <div id="item-action-modal" onclick="closeItemActionModal(event)" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-6">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-[280px] rounded-2xl p-4 shadow-2xl space-y-3 text-center" onclick="event.stopPropagation()">
           <div id="action-item-name" class="text-base font-black text-amber-400 border-b border-slate-800 pb-2">物品名稱</div>
@@ -260,19 +260,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=11 強制破除快取) -->
-  <script src="items_weapon.js?v=11"></script>
-  <script src="items_armor.js?v=11"></script>
-  <script src="items_material.js?v=11"></script>
-  <script src="items_food.js?v=11"></script>
-  <script src="recipes.js?v=11"></script>
-  <script src="maps.js?v=11"></script>
-  <script src="characters.js?v=11"></script>
-  <script src="game_config.js?v=11"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=12 強制破除快取) -->
+  <script src="items_weapon.js?v=12"></script>
+  <script src="items_armor.js?v=12"></script>
+  <script src="items_material.js?v=12"></script>
+  <script src="items_food.js?v=12"></script>
+  <script src="recipes.js?v=12"></script>
+  <script src="maps.js?v=12"></script>
+  <script src="characters.js?v=12"></script>
+  <script src="game_config.js?v=12"></script>
   
-  <script src="lobby.js?v=11"></script>
-  <script src="ai.js?v=11"></script>
-  <script src="combat.js?v=11"></script>
-  <script src="main.js?v=11"></script>
+  <script src="lobby.js?v=12"></script>
+  <script src="ai.js?v=12"></script>
+  <script src="combat.js?v=12"></script>
+  <script src="main.js?v=12"></script>
 </body>
 </html>
