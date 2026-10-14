@@ -1,10 +1,20 @@
 /**
  * 【模組：核心管家 main.js】
- * 支援彈出式戰術地圖與相鄰區域移動限制 (Adjacency Graph)
+ * 支援 2/3 狀態欄 + 1/3 黑色倖存者風格「直向骰子 6 格」裝備欄
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
   enableNPC: true
+};
+
+// 黑色倖存者風格：6 大裝備部位 SVG 半透明剪影圖示
+const EQUIP_SLOT_SVGS = {
+  weapon: `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
+  head:   `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
+  chest:  `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
+  arm:    `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
+  leg:    `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v11l-3 4v3h14v-3l-3-4V3H7z"/></svg>`,
+  acc:    `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
 const state = {
@@ -39,7 +49,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】已關閉縮圈與 NPC，請點擊右下角「移動」測試相鄰路線邏輯！", "text-emerald-400 font-bold");
+    addLog("【測試模式】已關閉縮圈與 NPC，請盡情測試裝備欄與地圖移動！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
   }
@@ -164,7 +174,6 @@ function craftItem(unit, recipe, isPlayer = true) {
   updateUI();
 }
 
-// 原地休息按鈕
 function playerRest() {
   if (state.gameOver || state.inCombat || !state.player) return;
   const p = state.player;
@@ -210,7 +219,6 @@ function playerSearch() {
   updateUI();
 }
 
-// 打開與關閉戰術地圖彈窗
 function openMapModal() {
   if (state.gameOver || state.inCombat) return;
   const modal = document.getElementById("map-modal");
@@ -225,14 +233,12 @@ function closeMapModal() {
   if (modal) modal.classList.add("hidden");
 }
 
-// 檢查兩個區域是否相鄰
 function isAdjacent(fromZoneId, toZoneId) {
   const fromZone = GAME_DATA.zones.find(z => z.id === fromZoneId);
   if (!fromZone || !fromZone.neighbors) return true;
   return fromZone.neighbors.includes(toZoneId);
 }
 
-// 移動區域（包含相鄰路線檢查）
 function moveZone(targetZoneId) {
   if (state.gameOver || state.inCombat || !state.player) return;
   const p = state.player;
@@ -247,7 +253,6 @@ function moveZone(targetZoneId) {
     return;
   }
 
-  // 關鍵邏輯：檢查是否相鄰
   if (!isAdjacent(p.zone, targetZoneId)) {
     const currentName = GAME_DATA.zones.find(z => z.id === p.zone).name;
     const targetName = GAME_DATA.zones.find(z => z.id === targetZoneId).name;
@@ -266,7 +271,6 @@ function moveZone(targetZoneId) {
   const zName = GAME_DATA.zones.find(z => z.id === targetZoneId).name;
   addLog(`移動到了【${zName}】。`, "text-indigo-300");
 
-  // 移動成功後自動收起地圖彈窗
   closeMapModal();
 
   if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.6) {
@@ -301,14 +305,45 @@ function useBagItem(index) {
   updateUI();
 }
 
-// 渲染純文字戰術地圖節點（顯示清晰的交通連接關係）
+// 渲染右側 1/3 的直向「骰子 6 格」裝備欄 (2欄 x 3列)
+function renderEquipSixGrid(p) {
+  const gridEl = document.getElementById("equip-six-grid");
+  if (!gridEl) return;
+
+  // 定義骰子 6 格對應的部位（左上:武器, 右上:頭, 左中:衣服, 右中:手臂, 左下:腿部, 右下:飾品）
+  const slots = [
+    { key: "weapon", label: "武器", item: p.weapon, svg: EQUIP_SLOT_SVGS.weapon, color: "border-amber-500/70 bg-amber-950/30 text-amber-300" },
+    { key: "head",   label: "頭部", item: p.armor,  svg: EQUIP_SLOT_SVGS.head,   color: "border-sky-500/70 bg-sky-950/30 text-sky-300" },
+    { key: "chest",  label: "衣服", item: p.chest,  svg: EQUIP_SLOT_SVGS.chest,  color: "border-emerald-500/70 bg-emerald-950/30 text-emerald-300" },
+    { key: "arm",    label: "手臂", item: p.arm,    svg: EQUIP_SLOT_SVGS.arm,    color: "border-purple-500/70 bg-purple-950/30 text-purple-300" },
+    { key: "leg",    label: "腿部", item: p.leg,    svg: EQUIP_SLOT_SVGS.leg,    color: "border-indigo-500/70 bg-indigo-950/30 text-indigo-300" },
+    { key: "acc",    label: "飾品", item: p.acc,    svg: EQUIP_SLOT_SVGS.acc,    color: "border-rose-500/70 bg-rose-950/30 text-rose-300" }
+  ];
+
+  gridEl.innerHTML = slots.map(s => {
+    if (s.item) {
+      const statStr = s.item.atk ? `+${s.item.atk}攻` : `+${s.item.def}防`;
+      return `
+        <div class="h-10 rounded border ${s.color} p-1 flex flex-col justify-center items-center text-center relative overflow-hidden">
+          <div class="text-[10px] font-black leading-tight truncate w-full">${s.item.name}</div>
+          <div class="text-[9px] font-mono opacity-80">${statStr}</div>
+        </div>
+      `;
+    }
+    return `
+      <div class="h-10 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative" title="${s.label}欄位">
+        ${s.svg}
+      </div>
+    `;
+  }).join("");
+}
+
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
   if (!container || !state.player) return;
 
   const p = state.player;
 
-  // 建立單一地區節點按鈕的輔助函式
   const buildNodeHTML = (zoneId) => {
     const z = GAME_DATA.zones.find(x => x.id === zoneId);
     if (!z) return "";
@@ -338,7 +373,6 @@ function renderTacticalMap() {
     `;
   };
 
-  // 排出北（士林）-> 中樞（北車）-> 南（立法院 / 竹科）的純文字拓樸路線圖
   container.innerHTML = `
     ${buildNodeHTML("shilin")}
     <div class="h-5 w-0.5 bg-slate-600"></div>
@@ -368,8 +402,6 @@ function updateUI() {
   if (statEl) statEl.textContent = `攻擊 ${getTotalAtk(p)} | 防禦 ${getTotalDef(p)}`;
 
   const zObj = GAME_DATA.zones.find(z => z.id === p.zone);
-  const badgeEl = document.getElementById("current-zone-badge");
-  if (badgeEl && zObj) badgeEl.textContent = zObj.name;
 
   const hpBar = document.getElementById("hp-bar");
   if (hpBar) hpBar.style.width = `${(p.hp / p.maxHp) * 100}%`;
@@ -381,8 +413,8 @@ function updateUI() {
   const spText = document.getElementById("sp-text");
   if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
-  const guideEl = document.getElementById("guide-text");
-  if (guideEl) guideEl.textContent = "提示：在立法院找折凳，去北車找鐵釘，合出七種武器之首！";
+  // 渲染右側 1/3 的骰子 6 格裝備槽
+  renderEquipSixGrid(p);
 
   const craftBox = document.getElementById("craft-alert-box");
   const availableRecipes = findAvailableRecipes(p);
@@ -423,17 +455,11 @@ function updateUI() {
     }
   }
 
-  // 如果地圖彈窗開著，同步更新地圖節點狀態
   const mapModal = document.getElementById("map-modal");
   if (mapModal && !mapModal.classList.contains("hidden")) {
     renderTacticalMap();
   }
 
-  const eqW = document.getElementById("equip-weapon");
-  if (eqW) eqW.textContent = p.weapon ? `${p.weapon.name} (+${p.weapon.atk})` : "赤手空拳 (+0)";
-  const eqA = document.getElementById("equip-armor");
-  if (eqA) eqA.textContent = p.armor ? `${p.armor.name} (+${p.armor.def})` : "布衣 (+0)";
-  
   const bagCount = document.getElementById("bag-count");
   if (bagCount) bagCount.textContent = `${p.bag.length} / 6`;
 
