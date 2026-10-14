@@ -1,12 +1,10 @@
 /**
  * 【模組：核心管家 main.js】
- * 沙盒開發模式版（已暫停縮圈與 NPC 干擾，方便測試介面與交互）
+ * 支援大廳雙模式切換（正常大逃殺模式 / 沙盒無人測試模式）
  */
-
-// 🛠️ 製作人專用開發開關（想恢復正常大逃殺時，把 false 改成 true 即可）
 const DEV_CONFIG = {
-  enableZoneClose: false, // 是否開啟隨機縮圈禁區
-  enableNPC: false        // 是否開啟嗡嗡阿伯 AI 行動與遭遇戰
+  enableZoneClose: true,
+  enableNPC: true
 };
 
 const state = {
@@ -20,10 +18,12 @@ const state = {
   ai: null
 };
 
-// 點擊開始遊戲後由 lobby.js 呼叫
-function initGame() {
-  console.log("initGame 執行中 (沙盒測試模式)...");
-  
+// 點擊開始遊戲後由 lobby.js 呼叫，接收 isSandbox 參數
+function initGame(isSandbox = false) {
+  // 根據玩家在大廳點擊的按鈕動態設定開關
+  DEV_CONFIG.enableZoneClose = !isSandbox;
+  DEV_CONFIG.enableNPC = !isSandbox;
+
   state.timeSec = 0;
   state.nextCloseSec = 45;
   state.closedZones = [];
@@ -33,7 +33,6 @@ function initGame() {
   state.player = JSON.parse(JSON.stringify(GAME_DATA.initialPlayer));
   state.ai = JSON.parse(JSON.stringify(GAME_DATA.initialAI));
 
-  // 如果關閉 NPC，直接將阿伯設為休眠狀態
   if (!DEV_CONFIG.enableNPC) {
     state.ai.alive = false;
   }
@@ -41,7 +40,12 @@ function initGame() {
   const logEl = document.getElementById("game-log");
   if (logEl) logEl.innerHTML = "";
 
-  addLog("🛠️ 【沙盒模式】已關閉縮圈與 NPC，請盡情測試搜刮與介面交互！", "text-emerald-400 font-bold");
+  if (isSandbox) {
+    addLog("🛠️ 【測試模式】已關閉縮圈與 NPC，請盡情測試搜刮與介面交互！", "text-emerald-400 font-bold");
+  } else {
+    addLog("🎮 台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
+  }
+
   updateUI();
   startGameLoop();
 }
@@ -79,11 +83,11 @@ function startGameLoop() {
         timerEl.textContent = `⏱️ ${Math.floor(state.timeSec/60).toString().padStart(2,'0')}:${(state.timeSec%60).toString().padStart(2,'0')}`;
       }
 
-      // 縮圈邏輯（受 DEV_CONFIG 控制）
       const warningEl = document.getElementById("zone-warning");
       if (DEV_CONFIG.enableZoneClose) {
         const remainClose = state.nextCloseSec - state.timeSec;
         if (warningEl && state.closedZones.length < 3) {
+          warningEl.className = "text-rose-400 font-semibold animate-pulse";
           if (remainClose > 0) {
             warningEl.textContent = `⚠️ ${remainClose}秒後封鎖下個區域`;
           } else {
@@ -105,12 +109,11 @@ function startGameLoop() {
         }
       } else {
         if (warningEl) {
-          warningEl.textContent = `🟢 沙盒模式：無縮圈限制`;
+          warningEl.textContent = `🟢 測試模式：無縮圈限制`;
           warningEl.className = "text-emerald-400 font-semibold";
         }
       }
 
-      // AI 行動邏輯（受 DEV_CONFIG 控制）
       if (DEV_CONFIG.enableNPC && state.timeSec % 3 === 0) {
         runAIBrain();
       }
@@ -175,7 +178,6 @@ function playerSearch() {
   p.sp -= 5;
   const currentZoneObj = GAME_DATA.zones.find(z => z.id === p.zone);
   
-  // 只有在開啟 NPC 時才會觸發遭遇戰
   if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.45) {
     startCombat();
     return;
