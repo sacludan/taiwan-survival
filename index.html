@@ -49,9 +49,8 @@
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-left text-xs text-slate-300 space-y-2 mb-2">
           <div class="font-bold text-amber-400 mb-1">操作說明：</div>
-          <p>1. 按著背包道具拖曳到上方「黃色區域」👉 直接丟棄。</p>
-          <p>2. 拖曳到下方「紅色區域」👉 自動裝備或吃掉（含舊裝備自動替換機制）。</p>
-          <p>3. 點擊道具也可開啟傳統點擊選單。</p>
+          <p>1. 點擊裝備欄或背包道具，即可查看屬性與台灣在地幹話描述。</p>
+          <p>2. 拖曳背包道具至黃區丟棄、紅區裝備或食用。</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-xl shadow-lg transition">
@@ -68,7 +67,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone 18 Ratio (402x874) • MVP v0.12
+        iPhone 18 Ratio (402x874) • MVP v0.13
       </div>
     </div>
 
@@ -96,7 +95,7 @@
       <main class="flex-1 p-3 flex flex-col justify-between gap-2.5 overflow-hidden relative">
         <div id="craft-alert-box" class="hidden"></div>
 
-        <!-- 【黃色區域：拖曳至此丟棄】探索面板 -->
+        <!-- 黃色區域：拖曳至此丟棄 -->
         <div id="drop-zone-yellow" ondragover="allowDrop(event)" ondrop="handleDropToYellow(event)" class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-4 relative transition">
           
           <div class="text-left border-b border-slate-700/60 pb-2">
@@ -168,7 +167,7 @@
           </div>
         </div>
 
-        <!-- 【紅色區域：拖曳至此裝備或吃掉】人物狀態區 + 6格裝備槽 -->
+        <!-- 紅色區域：人物狀態區 + 6格裝備槽 (平時不顯示文字，點擊跳出詳細檢視) -->
         <div id="drop-zone-red" ondragover="allowDrop(event)" ondrop="handleDropToRed(event)" class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
           
           <div class="w-2/3 bg-slate-950 p-3 rounded-lg border border-slate-800 flex flex-col justify-between">
@@ -208,19 +207,37 @@
       <!-- 底部隨身背包 -->
       <footer class="p-3 bg-slate-950 border-t border-slate-800 pb-4">
         <div class="flex justify-between text-[11px] text-slate-400 mb-1.5">
-          <span>隨身背包 (可拖曳至上方黃區丟棄 / 紅區裝備)</span>
+          <span>隨身背包 (點擊背包物品查看幹話描述或操作)</span>
           <span id="bag-count">0 / 6</span>
         </div>
         <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[68px]"></div>
       </footer>
 
-      <!-- 物品操作選單懸浮視窗 -->
-      <div id="item-action-modal" onclick="closeItemActionModal(event)" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-6">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-[280px] rounded-2xl p-4 shadow-2xl space-y-3 text-center" onclick="event.stopPropagation()">
-          <div id="action-item-name" class="text-base font-black text-amber-400 border-b border-slate-800 pb-2">物品名稱</div>
-          <div id="action-buttons-container" class="space-y-2 pt-1"></div>
-          <button onclick="closeItemActionModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
-            取消
+      <!-- ========================================== -->
+      <!-- 3. 【物品詳細資訊與幹話描述檢視彈窗 (Item Info Modal)】 -->
+      <!-- ========================================== -->
+      <div id="item-info-modal" onclick="closeItemInfoModal(event)" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-[310px] rounded-2xl p-5 shadow-2xl space-y-4 text-left" onclick="event.stopPropagation()">
+          
+          <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+            <div>
+              <div id="info-item-category" class="text-[10px] font-mono text-indigo-400 uppercase tracking-widest">裝備部位</div>
+              <div id="info-item-name" class="text-lg font-black text-amber-400 mt-0.5">物品名稱</div>
+            </div>
+            <div id="info-item-stat" class="text-xs font-mono font-bold px-2 py-1 bg-slate-800 rounded border border-slate-700 text-emerald-400">+8 攻</div>
+          </div>
+
+          <!-- 台灣在地幹話與梗描述 -->
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+            <div class="text-[10px] text-slate-500 font-bold mb-1">【戰術情報與幹話】</div>
+            <div id="info-item-desc" class="text-xs text-slate-300 leading-relaxed italic">這裡會顯示這件裝備或食物的在地梗與趣味描述。</div>
+          </div>
+
+          <!-- 動態操作按鈕區 (裝備、使用、解除裝備、丟棄) -->
+          <div id="info-buttons-container" class="space-y-2 pt-1"></div>
+
+          <button onclick="closeItemInfoModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
+            返回
           </button>
         </div>
       </div>
@@ -260,19 +277,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=12 強制破除快取) -->
-  <script src="items_weapon.js?v=12"></script>
-  <script src="items_armor.js?v=12"></script>
-  <script src="items_material.js?v=12"></script>
-  <script src="items_food.js?v=12"></script>
-  <script src="recipes.js?v=12"></script>
-  <script src="maps.js?v=12"></script>
-  <script src="characters.js?v=12"></script>
-  <script src="game_config.js?v=12"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=13 強制破除快取) -->
+  <script src="items_weapon.js?v=13"></script>
+  <script src="items_armor.js?v=13"></script>
+  <script src="items_material.js?v=13"></script>
+  <script src="items_food.js?v=13"></script>
+  <script src="recipes.js?v=13"></script>
+  <script src="maps.js?v=13"></script>
+  <script src="characters.js?v=13"></script>
+  <script src="game_config.js?v=13"></script>
   
-  <script src="lobby.js?v=12"></script>
-  <script src="ai.js?v=12"></script>
-  <script src="combat.js?v=12"></script>
-  <script src="main.js?v=12"></script>
+  <script src="lobby.js?v=13"></script>
+  <script src="ai.js?v=13"></script>
+  <script src="combat.js?v=13"></script>
+  <script src="main.js?v=13"></script>
 </body>
 </html>
