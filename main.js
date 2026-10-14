@@ -1,5 +1,5 @@
 /**
- * 【模組：核心管家 main.js (防呆修復版)】
+ * 【模組：核心管家 main.js】
  */
 const state = {
   timeSec: 0,
@@ -12,17 +12,10 @@ const state = {
   ai: null
 };
 
-// 由 lobby.js 呼叫：當玩家在大廳點擊「開始遊戲」時觸發
+// 點擊開始遊戲後由 lobby.js 呼叫
 function initGame() {
-  console.log("initGame 被觸發，正在檢查 GAME_DATA...", typeof GAME_DATA);
+  console.log("initGame 執行中...");
   
-  // 防呆檢查：如果 GAME_DATA 沒抓到，給它預設值避免整個畫面當掉
-  if (typeof GAME_DATA === 'undefined' || !GAME_DATA.zones) {
-    console.error("嚴重錯誤：GAME_DATA 未正確載入！請檢查各個 JS 檔案的載入順序。");
-    alert("遊戲資料載入異常，請確認各個資料積木檔案是否已上傳到 GitHub！");
-    return;
-  }
-
   state.timeSec = 0;
   state.nextCloseSec = 45;
   state.closedZones = [];
@@ -276,4 +269,63 @@ function updateUI() {
     const enemyHpText = document.getElementById("enemy-hp-text");
     if (enemyHpText) enemyHpText.textContent = `HP: ${ai.hp}/${ai.maxHp}`;
     const enemyHpBar = document.getElementById("enemy-hp-bar");
-    if (enemyHpBar)
+    if (enemyHpBar) enemyHpBar.style.width = `${(ai.hp / ai.maxHp) * 100}%`;
+  } else {
+    const expPanel = document.getElementById("explore-panel");
+    const comPanel = document.getElementById("combat-panel");
+    if (expPanel) expPanel.classList.remove("hidden");
+    if (comPanel) comPanel.classList.add("hidden");
+
+    const zoneTitle = document.getElementById("zone-title");
+    if (zoneTitle && zObj) zoneTitle.textContent = zObj.name;
+
+    const zoneDrops = document.getElementById("zone-drops");
+    if (zoneDrops && zObj) {
+      zoneDrops.textContent = `可搜刮：${zObj.drops.map(id => GAME_DATA.items[id] ? GAME_DATA.items[id].name : id).join("、")}`;
+    }
+  }
+
+  const mapGrid = document.getElementById("map-grid");
+  if (mapGrid && GAME_DATA.zones) {
+    mapGrid.innerHTML = GAME_DATA.zones.map(z => {
+      const isClosed = state.closedZones.includes(z.id);
+      const isCurrent = p.zone === z.id;
+      let btnStyle = "bg-slate-800 border-slate-700 text-slate-200";
+      if (isCurrent) btnStyle = "bg-indigo-900 border-indigo-500 text-white";
+      if (isClosed) btnStyle = "bg-rose-950 border-rose-800 text-rose-500 line-through opacity-60";
+      return `<button onclick="moveZone('${z.id}')" class="p-2.5 rounded-lg border text-left ${btnStyle}"><div>${z.name}</div></button>`;
+    }).join("");
+  }
+
+  const eqW = document.getElementById("equip-weapon");
+  if (eqW) eqW.textContent = p.weapon ? `${p.weapon.name} (+${p.weapon.atk})` : "赤手空拳 (+0)";
+  const eqA = document.getElementById("equip-armor");
+  if (eqA) eqA.textContent = p.armor ? `${p.armor.name} (+${p.armor.def})` : "布衣 (+0)";
+  
+  const bagCount = document.getElementById("bag-count");
+  if (bagCount) bagCount.textContent = `${p.bag.length} / 6`;
+
+  const invGrid = document.getElementById("inventory-grid");
+  if (invGrid) {
+    invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
+      if (p.bag[i]) {
+        const it = GAME_DATA.items[p.bag[i]];
+        const itemName = it ? it.name : p.bag[i];
+        return `<button onclick="useBagItem(${i})" class="bg-slate-800 border border-slate-700 rounded p-1.5 text-left h-14"><div class="text-xs font-bold truncate">${itemName}</div></button>`;
+      }
+      return `<div class="bg-slate-900 border border-slate-800 rounded p-1.5 text-center text-slate-600 h-14 flex items-center justify-center text-xs">空</div>`;
+    }).join("");
+  }
+}
+
+function endGame(isWin, reason) {
+  state.gameOver = true;
+  const modal = document.getElementById("gameover-modal");
+  if (modal) modal.classList.remove("hidden");
+  const icon = document.getElementById("gameover-icon");
+  if (icon) icon.textContent = isWin ? "🏆" : "🚑";
+  const title = document.getElementById("gameover-title");
+  if (title) title.textContent = isWin ? "大吉大利！" : "出師未捷...";
+  const desc = document.getElementById("gameover-desc");
+  if (desc) desc.textContent = reason;
+}
