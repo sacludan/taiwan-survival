@@ -1,13 +1,12 @@
 /**
  * 【模組：核心管家 main.js】
- * 支援 2/3 狀態欄 + 1/3 黑色倖存者風格「直向骰子 6 格」裝備欄
+ * 支援背包物品動態懸浮操作選單（裝備/使用/丟棄）與點擊空白處取消
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
   enableNPC: true
 };
 
-// 黑色倖存者風格：6 大裝備部位 SVG 半透明剪影圖示
 const EQUIP_SLOT_SVGS = {
   weapon: `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
   head:   `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
@@ -49,12 +48,13 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】已關閉縮圈與 NPC，請盡情測試裝備欄與地圖移動！", "text-emerald-400 font-bold");
+    addLog("【測試模式】點擊背包物品會彈出動態操作選單（裝備/使用/丟棄）！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
+  closeItemActionModal();
   updateUI();
   startGameLoop();
 }
@@ -279,11 +279,84 @@ function moveZone(targetZoneId) {
   updateUI();
 }
 
+// ==========================================
+// 【背包物品互動選單系統 (Item Action Modal)】
+// ==========================================
+let currentSelectedBagIndex = null;
+
+function clickBagItem(index) {
+  if (state.gameOver || !state.player) return;
+  const p = state.player;
+  const itemId = p.bag[index];
+  if (!itemId) return;
+
+  const item = GAME_DATA.items[itemId];
+  const itemName = item ? item.name : itemId;
+
+  currentSelectedBagIndex = index;
+
+  const modal = document.getElementById("item-action-modal");
+  const nameEl = document.getElementById("action-item-name");
+  const btnContainer = document.getElementById("action-buttons-container");
+
+  if (nameEl) nameEl.textContent = itemName;
+
+  // 根據物品類型動態生成按鈕選項
+  let buttonsHTML = "";
+  if (item && (item.type === "weapon" || item.type === "armor")) {
+    buttonsHTML = `
+      <button onclick="executeBagAction('equip')" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm shadow transition">裝備</button>
+      <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
+    `;
+  } else if (item && item.type === "food") {
+    buttonsHTML = `
+      <button onclick="executeBagAction('use')" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-sm shadow transition">使用 (食用)</button>
+      <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
+    `;
+  } else {
+    // 材料或其他類型
+    buttonsHTML = `
+      <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
+    `;
+  }
+
+  if (btnContainer) btnContainer.innerHTML = buttonsHTML;
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeItemActionModal(event) {
+  const modal = document.getElementById("item-action-modal");
+  if (modal) modal.classList.add("hidden");
+  currentSelectedBagIndex = null;
+}
+
+function executeBagAction(actionType) {
+  if (currentSelectedBagIndex === null || !state.player) return;
+  const p = state.player;
+  const index = currentSelectedBagIndex;
+  const itemId = p.bag[index];
+  const item = GAME_DATA.items[itemId];
+
+  closeItemActionModal();
+
+  if (actionType === 'use' || actionType === 'equip') {
+    // 直接複用原本的 useBagItem 邏輯（食物會回復，裝備會與身上的互換）
+    useBagItem(index);
+  } else if (actionType === 'drop') {
+    p.bag.splice(index, 1);
+    addLog(`丟棄了【${item ? item.name : itemId}】。`, "text-slate-500");
+    updateUI();
+  }
+}
+
+// 支援原本的 useBagItem 呼叫
 function useBagItem(index) {
   if (state.gameOver || !state.player) return;
   const p = state.player;
   const itemId = p.bag[index];
   const item = GAME_DATA.items[itemId];
+
+  if (!item) return;
 
   if (item.type === "food") {
     p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
@@ -305,12 +378,12 @@ function useBagItem(index) {
   updateUI();
 }
 
-// 渲染右側 1/3 的直向「骰子 6 格」裝備欄 (2欄 x 3列)
+// ==========================================
+
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
 
-  // 定義骰子 6 格對應的部位（左上:武器, 右上:頭, 左中:衣服, 右中:手臂, 左下:腿部, 右下:飾品）
   const slots = [
     { key: "weapon", label: "武器", item: p.weapon, svg: EQUIP_SLOT_SVGS.weapon, color: "border-amber-500/70 bg-amber-950/30 text-amber-300" },
     { key: "head",   label: "頭部", item: p.armor,  svg: EQUIP_SLOT_SVGS.head,   color: "border-sky-500/70 bg-sky-950/30 text-sky-300" },
@@ -413,7 +486,6 @@ function updateUI() {
   const spText = document.getElementById("sp-text");
   if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
-  // 渲染右側 1/3 的骰子 6 格裝備槽
   renderEquipSixGrid(p);
 
   const craftBox = document.getElementById("craft-alert-box");
@@ -469,7 +541,7 @@ function updateUI() {
       if (p.bag[i]) {
         const it = GAME_DATA.items[p.bag[i]];
         const itemName = it ? it.name : p.bag[i];
-        return `<button onclick="useBagItem(${i})" class="bg-slate-800 border border-slate-700 rounded p-1.5 text-left h-14"><div class="text-xs font-bold truncate">${itemName}</div></button>`;
+        return `<button onclick="clickBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-14 transition flex flex-col justify-center"><div class="text-xs font-bold truncate text-slate-100">${itemName}</div><div class="text-[9px] text-slate-400 mt-0.5">點擊操作</div></button>`;
       }
       return `<div class="bg-slate-900 border border-slate-800 rounded p-1.5 text-center text-slate-600 h-14 flex items-center justify-center text-xs">空</div>`;
     }).join("");
