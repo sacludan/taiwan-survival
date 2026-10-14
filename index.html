@@ -21,22 +21,28 @@
     <!-- 1. 【遊戲主大廳畫面 (Lobby Screen)】 -->
     <!-- ========================================== -->
     <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-6 text-center">
-      <div class="mt-12">
+      <div class="mt-10">
         <div class="text-5xl mb-4">🇹🇼</div>
         <h1 class="text-3xl font-black text-white tracking-wider mb-2">台灣生存戰</h1>
         <p class="text-xs text-indigo-400 font-mono tracking-widest uppercase">Formosa Survival: Battle Royale</p>
       </div>
 
-      <div class="space-y-4 my-auto">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-left text-xs text-slate-300 space-y-2">
+      <div class="space-y-3 my-auto">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-left text-xs text-slate-300 space-y-2 mb-2">
           <div class="font-bold text-amber-400 mb-1">🎮 遊戲玩法簡介：</div>
           <p>1. 點擊地標搜尋物資、合成台灣神裝。</p>
           <p>2. 注意 45 秒隨機縮圈警報，避免困在禁區。</p>
           <p>3. 遭遇嗡嗡阿伯，善用半即時戰鬥與技能擊敗對手！</p>
         </div>
 
-        <button onclick="LobbyManager.startGame()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-xl shadow-lg transition">
-          🚀 開始遊戲
+        <!-- 正常模式按鈕 -->
+        <button onclick="LobbyManager.startGame(false)" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-xl shadow-lg transition">
+          🚀 開始遊戲 (正常對戰)
+        </button>
+
+        <!-- 測試模式 (沙盒) 按鈕 -->
+        <button onclick="LobbyManager.startGame(true)" class="w-full py-3.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/60 active:scale-95 text-emerald-300 font-bold rounded-xl text-base shadow transition flex items-center justify-center gap-2">
+          <span>🛠️ 測試模式 (無縮圈 / 無NPC)</span>
         </button>
 
         <button onclick="alert('製作人：目前為單機 PvE 測試版，敬請期待多人連線！')" class="w-full py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 font-bold rounded-xl text-sm transition">
@@ -45,7 +51,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        Modular Architecture MVP v0.2
+        Modular Architecture MVP v0.3
       </div>
     </div>
 
@@ -201,19 +207,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 -->
-  <script src="items_weapon.js"></script>
-  <script src="items_armor.js"></script>
-  <script src="items_material.js"></script>
-  <script src="items_food.js"></script>
-  <script src="recipes.js"></script>
-  <script src="maps.js"></script>
-  <script src="characters.js"></script>
-  <script src="game_config.js"></script>
+  <!-- 🔗 模組引入清單 (加上 ?v=3 強制破除快取) -->
+  <script src="items_weapon.js?v=3"></script>
+  <script src="items_armor.js?v=3"></script>
+  <script src="items_material.js?v=3"></script>
+  <script src="items_food.js?v=3"></script>
+  <script src="recipes.js?v=3"></script>
+  <script src="maps.js?v=3"></script>
+  <script src="characters.js?v=3"></script>
+  <script src="game_config.js?v=3"></script>
   
-  <script src="lobby.js"></script>
-  <script src="ai.js"></script>
-  <script src="combat.js"></script>
-  <script src="main.js"></script>
+  <script src="lobby.js?v=3"></script>
+  <script src="ai.js?v=3"></script>
+  <script src="combat.js?v=3"></script>
+  <script src="main.js?v=3"></script>
 </body>
 </html>
