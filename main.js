@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 支援背包物品動態懸浮操作選單（裝備/使用/丟棄）與點擊空白處取消
+ * 修正裝備智慧替換邏輯：舊裝備直接補回原背包格子，實現完美置換
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -48,7 +48,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】點擊背包物品會彈出動態操作選單（裝備/使用/丟棄）！", "text-emerald-400 font-bold");
+    addLog("【測試模式】裝備替換已修正：舊裝備會直接補回原背包位置！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
   }
@@ -160,11 +160,16 @@ function craftItem(unit, recipe, isPlayer = true) {
 
   const newItem = GAME_DATA.items[recipe.result];
   if (newItem.type === "weapon" && (!unit.weapon || newItem.score > unit.weapon.score)) {
-    if (unit.weapon && unit.bag.length < 6) unit.bag.push(unit.weapon.id);
+    if (unit.weapon) {
+      // 合成自動裝備時，舊武器補回背包
+      unit.bag.push(unit.weapon.id);
+    }
     unit.weapon = newItem;
     if (isPlayer) addLog(`合成神武並自動裝備：【${newItem.name}】！`, "text-amber-400 font-bold");
   } else if (newItem.type === "armor" && (!unit.armor || newItem.score > unit.armor.score)) {
-    if (unit.armor && unit.bag.length < 6) unit.bag.push(unit.armor.id);
+    if (unit.armor) {
+      unit.bag.push(unit.armor.id);
+    }
     unit.armor = newItem;
     if (isPlayer) addLog(`合成防具並自動穿戴：【${newItem.name}】！`, "text-sky-400 font-bold");
   } else {
@@ -280,7 +285,88 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
-// 【背包物品互動選單系統 (Item Action Modal)】
+// 【拖曳互動與裝備精準置換系統】
+// ==========================================
+let draggedBagIndex = null;
+
+function handleDragStart(event, index) {
+  draggedBagIndex = index;
+  event.dataTransfer.setData("text/plain", index);
+}
+
+function allowDrop(event) {
+  event.preventDefault();
+}
+
+// 拖曳到上方黃色區域 👉 丟棄道具
+function handleDropToYellow(event) {
+  event.preventDefault();
+  if (draggedBagIndex === null || !state.player) return;
+  const p = state.player;
+  const item = GAME_DATA.items[p.bag[draggedBagIndex]];
+  const itemName = item ? item.name : p.bag[draggedBagIndex];
+
+  p.bag.splice(draggedBagIndex, 1);
+  addLog(`拖曳丟棄了【${itemName}】。`, "text-slate-500");
+  draggedBagIndex = null;
+  updateUI();
+}
+
+// 拖曳到下方紅色區域 👉 裝備置換 或 吃掉食物
+function handleDropToRed(event) {
+  event.preventDefault();
+  if (draggedBagIndex === null || !state.player) return;
+  const p = state.player;
+  const index = draggedBagIndex;
+  const itemId = p.bag[index];
+  const item = GAME_DATA.items[itemId];
+
+  if (!item) {
+    draggedBagIndex = null;
+    return;
+  }
+
+  if (item.type === "food") {
+    // 食物直接食用
+    p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
+    p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
+    p.bag.splice(index, 1);
+    addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
+  } 
+  else if (item.type === "weapon") {
+    // 武器置換：新武器佔據背包原格，舊武器補回該格
+    const oldWeapon = p.weapon;
+    p.weapon = item;
+    if (oldWeapon) {
+      p.bag[index] = oldWeapon.id; // 舊裝備直接放回同一個背包格子
+      addLog(`換上武器【${item.name}】，原武器【${oldWeapon.name}】已放回背包！`, "text-amber-300 font-bold");
+    } else {
+      p.bag.splice(index, 1); // 如果本來沒裝備，直接消耗背包該格
+      addLog(`裝備武器【${item.name}】！`, "text-amber-300");
+    }
+  } 
+  else if (item.type === "armor") {
+    // 防具置換：新防具佔據背包原格，舊防具補回該格
+    const oldArmor = p.armor;
+    p.armor = item;
+    if (oldArmor) {
+      p.bag[index] = oldArmor.id;
+      addLog(`穿上防具【${item.name}】，原防具【${oldArmor.name}】已放回背包！`, "text-sky-300 font-bold");
+    } else {
+      p.bag.splice(index, 1);
+      addLog(`穿上防具【${item.name}】！`, "text-sky-300");
+    }
+  } 
+  else {
+    addLog(`此物品無法直接裝備或食用！`, "text-rose-400");
+  }
+
+  draggedBagIndex = null;
+  updateUI();
+}
+
+// ==========================================
+// 【背包點擊懸浮選單系統 (支援精準置換)】
 // ==========================================
 let currentSelectedBagIndex = null;
 
@@ -292,7 +378,6 @@ function clickBagItem(index) {
 
   const item = GAME_DATA.items[itemId];
   const itemName = item ? item.name : itemId;
-
   currentSelectedBagIndex = index;
 
   const modal = document.getElementById("item-action-modal");
@@ -301,11 +386,10 @@ function clickBagItem(index) {
 
   if (nameEl) nameEl.textContent = itemName;
 
-  // 根據物品類型動態生成按鈕選項
   let buttonsHTML = "";
   if (item && (item.type === "weapon" || item.type === "armor")) {
     buttonsHTML = `
-      <button onclick="executeBagAction('equip')" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm shadow transition">裝備</button>
+      <button onclick="executeBagAction('equip')" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm shadow transition">裝備 (自動替換)</button>
       <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
     `;
   } else if (item && item.type === "food") {
@@ -314,7 +398,6 @@ function clickBagItem(index) {
       <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
     `;
   } else {
-    // 材料或其他類型
     buttonsHTML = `
       <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
     `;
@@ -339,43 +422,47 @@ function executeBagAction(actionType) {
 
   closeItemActionModal();
 
-  if (actionType === 'use' || actionType === 'equip') {
-    // 直接複用原本的 useBagItem 邏輯（食物會回復，裝備會與身上的互換）
-    useBagItem(index);
-  } else if (actionType === 'drop') {
+  if (actionType === 'use') {
+    p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
+    p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
+    p.bag.splice(index, 1);
+    addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
+    updateUI();
+  } 
+  else if (actionType === 'equip') {
+    if (item.type === "weapon") {
+      const old = p.weapon;
+      p.weapon = item;
+      if (old) {
+        p.bag[index] = old.id;
+        addLog(`換上武器【${item.name}】，原武器【${old.name}】已放回背包！`, "text-amber-300 font-bold");
+      } else {
+        p.bag.splice(index, 1);
+        addLog(`換上武器【${item.name}】！`, "text-amber-300");
+      }
+    } else if (item.type === "armor") {
+      const old = p.armor;
+      p.armor = item;
+      if (old) {
+        p.bag[index] = old.id;
+        addLog(`穿上防具【${item.name}】，原防具【${old.name}】已放回背包！`, "text-sky-300 font-bold");
+      } else {
+        p.bag.splice(index, 1);
+        addLog(`穿上防具【${item.name}】！`, "text-sky-300");
+      }
+    }
+    updateUI();
+  } 
+  else if (actionType === 'drop') {
     p.bag.splice(index, 1);
     addLog(`丟棄了【${item ? item.name : itemId}】。`, "text-slate-500");
     updateUI();
   }
 }
 
-// 支援原本的 useBagItem 呼叫
+// 支援舊版相容
 function useBagItem(index) {
-  if (state.gameOver || !state.player) return;
-  const p = state.player;
-  const itemId = p.bag[index];
-  const item = GAME_DATA.items[itemId];
-
-  if (!item) return;
-
-  if (item.type === "food") {
-    p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
-    p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
-    p.bag.splice(index, 1);
-    addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
-  } else if (item.type === "weapon") {
-    const old = p.weapon; p.weapon = item; p.bag.splice(index, 1);
-    if (old) p.bag.push(old.id);
-    addLog(`換上武器【${item.name}】！`, "text-amber-300");
-  } else if (item.type === "armor") {
-    const old = p.armor; p.armor = item; p.bag.splice(index, 1);
-    if (old) p.bag.push(old.id);
-    addLog(`穿上防具【${item.name}】！`, "text-sky-300");
-  } else {
-    p.bag.splice(index, 1);
-    addLog(`丟棄了【${item.name}】。`, "text-slate-500");
-  }
-  updateUI();
+  clickBagItem(index);
 }
 
 // ==========================================
@@ -541,7 +628,12 @@ function updateUI() {
       if (p.bag[i]) {
         const it = GAME_DATA.items[p.bag[i]];
         const itemName = it ? it.name : p.bag[i];
-        return `<button onclick="clickBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-14 transition flex flex-col justify-center"><div class="text-xs font-bold truncate text-slate-100">${itemName}</div><div class="text-[9px] text-slate-400 mt-0.5">點擊操作</div></button>`;
+        return `
+          <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="clickBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-14 transition flex flex-col justify-center cursor-grab active:cursor-grabbing select-none">
+            <div class="text-xs font-bold truncate text-slate-100">${itemName}</div>
+            <div class="text-[9px] text-amber-400 mt-0.5">按住拖曳 / 點擊</div>
+          </div>
+        `;
       }
       return `<div class="bg-slate-900 border border-slate-800 rounded p-1.5 text-center text-slate-600 h-14 flex items-center justify-center text-xs">空</div>`;
     }).join("");
@@ -551,7 +643,7 @@ function updateUI() {
 function endGame(isWin, reason) {
   state.gameOver = true;
   const modal = document.getElementById("gameover-modal");
-  if (modal) modal.classList.remove("hidden");
+  if (modal) modal.classList.add("hidden");
   const icon = document.getElementById("gameover-icon");
   if (icon) icon.textContent = isWin ? "WIN" : "LOSE";
   const title = document.getElementById("gameover-title");
