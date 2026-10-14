@@ -67,7 +67,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone 18 Ratio (402x874) • MVP v0.13
+        iPhone 18 Ratio (402x874) • MVP v0.14
       </div>
     </div>
 
@@ -76,51 +76,53 @@
     <!-- ========================================== -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative">
 
-      <!-- 頂部資訊列 -->
+      <!-- 頂部資訊列：改為簡潔的時間與縮圈警告 -->
       <header class="p-3 bg-slate-950 border-b border-slate-800 sticky top-0 z-10 pt-4">
-        <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
+        <div class="flex justify-between items-center text-xs text-slate-400">
           <span id="game-timer" class="font-mono text-amber-400 font-bold text-sm">00:00</span>
           <span id="zone-warning" class="text-rose-400 font-semibold animate-pulse">45秒後封鎖區域</span>
           <span id="ai-alive" class="bg-slate-800 px-2 py-0.5 rounded text-emerald-400">嗡嗡阿伯：存活</span>
         </div>
-
-        <!-- 台灣即時戰況廣播 -->
-        <div class="bg-slate-900 border border-slate-800 rounded-lg p-2 flex flex-col h-[88px]">
-          <div class="text-[11px] text-slate-500 font-bold mb-1 border-b border-slate-800 pb-1">台灣即時戰況廣播</div>
-          <div id="game-log" class="flex-1 overflow-y-auto space-y-1 text-xs font-mono"></div>
-        </div>
       </header>
 
       <!-- 中央主場景與下方角色裝備區 -->
-      <main class="flex-1 p-3 flex flex-col justify-between gap-2.5 overflow-hidden relative">
+      <main class="flex-1 p-3 flex flex-col justify-between gap-2 overflow-hidden relative">
         <div id="craft-alert-box" class="hidden"></div>
 
-        <!-- 黃色區域：拖曳至此丟棄 -->
-        <div id="drop-zone-yellow" ondragover="allowDrop(event)" ondrop="handleDropToYellow(event)" class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-4 relative transition">
+        <!-- 探索面板：包含黃色區域丟棄、地點、搜刮按鈕、即時戰況日誌（透明背景）與休息/移動按鈕 -->
+        <div id="drop-zone-yellow" ondragover="allowDrop(event)" ondrop="handleDropToYellow(event)" class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3.5 relative transition">
           
-          <div class="text-left border-b border-slate-700/60 pb-2">
-            <div class="text-[11px] text-slate-400 font-mono">CURRENT LOCATION</div>
-            <h2 id="zone-title" class="text-2xl font-black text-white tracking-wide">立法院</h2>
-            <p id="zone-drops" class="text-xs text-slate-400 mt-1">可搜刮物資：載入中</p>
+          <div class="flex justify-between items-start border-b border-slate-700/60 pb-2">
+            <div>
+              <div class="text-[10px] text-slate-400 font-mono">CURRENT LOCATION</div>
+              <h2 id="zone-title" class="text-xl font-black text-white tracking-wide">立法院</h2>
+              <p id="zone-drops" class="text-[11px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
+            </div>
+            <!-- 右上角擺放休息按鈕 (對應藍色方塊位置) -->
+            <button onclick="playerRest()" class="px-3 py-2 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-slate-700 rounded-lg flex flex-col items-center justify-center shadow transition">
+              <span class="text-xs font-black text-sky-400">休息</span>
+              <span class="text-[9px] text-slate-400">+25體</span>
+            </button>
           </div>
 
           <!-- 搜刮按鈕 -->
-          <div class="my-auto py-2">
+          <div class="my-auto py-1">
             <button id="btn-search" onclick="playerSearch()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-xl text-lg shadow-xl transition tracking-wider">
               搜刮此區域 (-5 體力)
             </button>
           </div>
 
-          <!-- 右下角方塊按鈕 (休息 / 移動) -->
-          <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-800/80">
-            <button onclick="playerRest()" class="w-20 h-14 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-slate-700 rounded-lg flex flex-col items-center justify-center shadow-md transition">
-              <span class="text-xs font-black text-sky-400">休息</span>
-              <span class="text-[10px] text-slate-400 mt-0.5">+25 體力</span>
-            </button>
+          <!-- 下方：透明背景即時戰況日誌 (參考黑色倖存者風格) + 右下角移動按鈕 -->
+          <div class="flex items-end gap-2 pt-2 border-t border-slate-700/40">
+            <!-- 透明即時戰況廣播 -->
+            <div class="flex-1 h-[72px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1">
+              <div id="game-log" class="space-y-1"></div>
+            </div>
 
-            <button onclick="openMapModal()" class="w-20 h-14 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-lg flex flex-col items-center justify-center shadow-md transition">
+            <!-- 右下角移動按鈕 -->
+            <button onclick="openMapModal()" class="w-20 h-14 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-lg flex flex-col items-center justify-center shadow-md transition shrink-0">
               <span class="text-xs font-black text-amber-400">移動</span>
-              <span class="text-[10px] text-slate-400 mt-0.5">展開地圖</span>
+              <span class="text-[9px] text-slate-400 mt-0.5">展開地圖</span>
             </button>
           </div>
 
@@ -167,7 +169,7 @@
           </div>
         </div>
 
-        <!-- 紅色區域：人物狀態區 + 6格裝備槽 (平時不顯示文字，點擊跳出詳細檢視) -->
+        <!-- 紅色區域：人物狀態區 + 6格裝備槽 -->
         <div id="drop-zone-red" ondragover="allowDrop(event)" ondrop="handleDropToRed(event)" class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
           
           <div class="w-2/3 bg-slate-950 p-3 rounded-lg border border-slate-800 flex flex-col justify-between">
@@ -176,19 +178,19 @@
               <div id="player-stats" class="text-xs text-amber-400 font-bold mt-0.5">攻擊 15 | 防禦 5</div>
             </div>
 
-            <div class="space-y-2.5 text-xs my-auto pt-2">
+            <div class="space-y-2 text-xs my-auto pt-1">
               <div>
-                <div class="flex justify-between text-[11px] mb-1">
+                <div class="flex justify-between text-[11px] mb-0.5">
                   <span class="text-rose-400 font-bold">HP</span>
                   <span id="hp-text" class="font-mono text-slate-300">120/120</span>
                 </div>
-                <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
                   <div id="hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
                 </div>
               </div>
 
               <div>
-                <div class="flex justify-between text-[11px] mb-1">
+                <div class="flex justify-between text-[11px] mb-0.5">
                   <span class="text-sky-400 font-bold">體力</span>
                   <span id="sp-text" class="font-mono text-slate-300">100/100</span>
                 </div>
@@ -210,12 +212,10 @@
           <span>隨身背包 (點擊背包物品查看幹話描述或操作)</span>
           <span id="bag-count">0 / 6</span>
         </div>
-        <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[68px]"></div>
+        <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[64px]"></div>
       </footer>
 
-      <!-- ========================================== -->
-      <!-- 3. 【物品詳細資訊與幹話描述檢視彈窗 (Item Info Modal)】 -->
-      <!-- ========================================== -->
+      <!-- 物品詳細資訊與幹話描述檢視彈窗 -->
       <div id="item-info-modal" onclick="closeItemInfoModal(event)" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-[310px] rounded-2xl p-5 shadow-2xl space-y-4 text-left" onclick="event.stopPropagation()">
           
@@ -227,13 +227,11 @@
             <div id="info-item-stat" class="text-xs font-mono font-bold px-2 py-1 bg-slate-800 rounded border border-slate-700 text-emerald-400">+8 攻</div>
           </div>
 
-          <!-- 台灣在地幹話與梗描述 -->
           <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
             <div class="text-[10px] text-slate-500 font-bold mb-1">【戰術情報與幹話】</div>
             <div id="info-item-desc" class="text-xs text-slate-300 leading-relaxed italic">這裡會顯示這件裝備或食物的在地梗與趣味描述。</div>
           </div>
 
-          <!-- 動態操作按鈕區 (裝備、使用、解除裝備、丟棄) -->
           <div id="info-buttons-container" class="space-y-2 pt-1"></div>
 
           <button onclick="closeItemInfoModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
@@ -277,19 +275,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=13 強制破除快取) -->
-  <script src="items_weapon.js?v=13"></script>
-  <script src="items_armor.js?v=13"></script>
-  <script src="items_material.js?v=13"></script>
-  <script src="items_food.js?v=13"></script>
-  <script src="recipes.js?v=13"></script>
-  <script src="maps.js?v=13"></script>
-  <script src="characters.js?v=13"></script>
-  <script src="game_config.js?v=13"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=14 強制破除快取) -->
+  <script src="items_weapon.js?v=14"></script>
+  <script src="items_armor.js?v=14"></script>
+  <script src="items_material.js?v=14"></script>
+  <script src="items_food.js?v=14"></script>
+  <script src="recipes.js?v=14"></script>
+  <script src="maps.js?v=14"></script>
+  <script src="characters.js?v=14"></script>
+  <script src="game_config.js?v=14"></script>
   
-  <script src="lobby.js?v=13"></script>
-  <script src="ai.js?v=13"></script>
-  <script src="combat.js?v=13"></script>
-  <script src="main.js?v=13"></script>
+  <script src="lobby.js?v=14"></script>
+  <script src="ai.js?v=14"></script>
+  <script src="combat.js?v=14"></script>
+  <script src="main.js?v=14"></script>
 </body>
 </html>
