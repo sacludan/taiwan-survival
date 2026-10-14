@@ -49,8 +49,9 @@
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-left text-xs text-slate-300 space-y-2 mb-2">
           <div class="font-bold text-amber-400 mb-1">操作說明：</div>
-          <p>1. 點擊裝備欄或背包道具，即可查看屬性與台灣在地幹話描述。</p>
-          <p>2. 拖曳背包道具至黃區丟棄、紅區裝備或食用。</p>
+          <p>1. 體力每 3 秒自動回復 5 點。</p>
+          <p>2. 點擊右上角「移動」切換戰術地圖。</p>
+          <p>3. 點擊裝備或背包道具可查看在地幹話與詳細資訊。</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-xl shadow-lg transition">
@@ -67,7 +68,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone 18 Ratio (402x874) • MVP v0.16
+        iPhone 18 Ratio (402x874) • MVP v0.17
       </div>
     </div>
 
@@ -92,11 +93,19 @@
         <!-- 探索面板 -->
         <div id="drop-zone-yellow" ondragover="allowDrop(event)" ondrop="handleDropToYellow(event)" class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3.5 relative transition">
           
-          <!-- 上方：地點標示 -->
-          <div class="border-b border-slate-700/60 pb-2">
-            <div class="text-[10px] text-slate-400 font-mono">CURRENT LOCATION</div>
-            <h2 id="zone-title" class="text-xl font-black text-white tracking-wide">立法院</h2>
-            <p id="zone-drops" class="text-[11px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
+          <!-- 上方：地點標示 + 右上角移動按鈕 -->
+          <div class="flex justify-between items-start border-b border-slate-700/60 pb-2">
+            <div>
+              <div class="text-[10px] text-slate-400 font-mono">CURRENT LOCATION</div>
+              <h2 id="zone-title" class="text-xl font-black text-white tracking-wide">立法院</h2>
+              <p id="zone-drops" class="text-[11px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
+            </div>
+
+            <!-- 右上角移動按鈕 -->
+            <button onclick="openMapModal()" class="px-3.5 py-2 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
+              <span class="text-xs font-black text-amber-400">移動</span>
+              <span class="text-[9px] text-slate-400">地圖</span>
+            </button>
           </div>
 
           <!-- 搜刮按鈕 -->
@@ -106,24 +115,10 @@
             </button>
           </div>
 
-          <!-- 下方：左側寬敞戰況日誌 + 右下角上下排列的「休息」與「移動」按鈕 -->
-          <div class="flex items-end gap-2.5 pt-2 border-t border-slate-700/40">
-            <!-- 透明即時戰況廣播 (享有更寬廣空間) -->
-            <div class="flex-1 h-[76px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1">
+          <!-- 下方：跨整條的透明即時戰況廣播 -->
+          <div class="pt-2 border-t border-slate-700/40">
+            <div class="h-[68px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1">
               <div id="game-log" class="space-y-1"></div>
-            </div>
-
-            <!-- 右下角雙按鈕 (上：休息，下：移動) -->
-            <div class="flex flex-col gap-1.5 shrink-0">
-              <button onclick="playerRest()" class="w-18 h-9 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-sky-500/80 rounded-lg flex items-center justify-center gap-1 shadow transition">
-                <span class="text-xs font-black text-sky-400">休息</span>
-                <span class="text-[9px] text-slate-400">+25體</span>
-              </button>
-
-              <button onclick="openMapModal()" class="w-18 h-9 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-amber-500/80 rounded-lg flex items-center justify-center gap-1 shadow transition">
-                <span class="text-xs font-black text-amber-400">移動</span>
-                <span class="text-[9px] text-slate-400">地圖</span>
-              </button>
             </div>
           </div>
 
@@ -192,7 +187,7 @@
 
               <div>
                 <div class="flex justify-between text-[11px] mb-0.5">
-                  <span class="text-sky-400 font-bold">體力</span>
+                  <span class="text-sky-400 font-bold">體力 (自動回復)</span>
                   <span id="sp-text" class="font-mono text-slate-300">100/100</span>
                 </div>
                 <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
@@ -276,19 +271,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=16 強制破除快取) -->
-  <script src="items_weapon.js?v=16"></script>
-  <script src="items_armor.js?v=16"></script>
-  <script src="items_material.js?v=16"></script>
-  <script src="items_food.js?v=16"></script>
-  <script src="recipes.js?v=16"></script>
-  <script src="maps.js?v=16"></script>
-  <script src="characters.js?v=16"></script>
-  <script src="game_config.js?v=16"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=17 強制破除快取) -->
+  <script src="items_weapon.js?v=17"></script>
+  <script src="items_armor.js?v=17"></script>
+  <script src="items_material.js?v=17"></script>
+  <script src="items_food.js?v=17"></script>
+  <script src="recipes.js?v=17"></script>
+  <script src="maps.js?v=17"></script>
+  <script src="characters.js?v=17"></script>
+  <script src="game_config.js?v=17"></script>
   
-  <script src="lobby.js?v=16"></script>
-  <script src="ai.js?v=16"></script>
-  <script src="combat.js?v=16"></script>
-  <script src="main.js?v=16"></script>
+  <script src="lobby.js?v=17"></script>
+  <script src="ai.js?v=17"></script>
+  <script src="combat.js?v=17"></script>
+  <script src="main.js?v=17"></script>
 </body>
 </html>
