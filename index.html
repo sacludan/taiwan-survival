@@ -15,6 +15,33 @@
     @keyframes pulse-fast { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
     .animate-pulse-fast { animation: pulse-fast 1s infinite; }
 
+    /* 優化 1：戰報極簡微型半透明捲軸 */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.4);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.7);
+    }
+
+    /* 優化 4：拖曳時的動態高亮與陰影效果 */
+    .drag-over-yellow {
+      border-color: #f59e0b !important;
+      background-color: rgba(245, 158, 11, 0.1) !important;
+      box-shadow: inset 0 0 15px rgba(245, 158, 11, 0.2);
+    }
+    .drag-over-red {
+      border-color: #f43f5e !important;
+      background-color: rgba(244, 63, 94, 0.15) !important;
+      box-shadow: inset 0 0 15px rgba(244, 63, 94, 0.3);
+    }
+
     .iphone-device-frame {
       width: 100%;
       max-width: 402px;
@@ -51,7 +78,7 @@
           <div class="font-bold text-amber-400 mb-1">操作說明：</div>
           <p>1. 體力每 3 秒自動回復 5 點。</p>
           <p>2. 點擊右上角「移動」切換戰術地圖。</p>
-          <p>3. 點擊裝備或背包道具可查看在地幹話與詳細資訊。</p>
+          <p>3. 點擊裝備或背包道具可查看詳細資訊。</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-xl shadow-lg transition">
@@ -68,7 +95,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone 18 Ratio (402x874) • MVP v0.17
+        iPhone 18 Ratio (402x874) • MVP v0.18
       </div>
     </div>
 
@@ -77,12 +104,12 @@
     <!-- ========================================== -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative">
 
-      <!-- 頂部資訊列 -->
+      <!-- 頂部資訊列 (已刪除右上角紅圈 1: NPC狀態) -->
       <header class="p-3 bg-slate-950 border-b border-slate-800 sticky top-0 z-10 pt-4">
         <div class="flex justify-between items-center text-xs text-slate-400">
           <span id="game-timer" class="font-mono text-amber-400 font-bold text-sm">00:00</span>
           <span id="zone-warning" class="text-rose-400 font-semibold animate-pulse">45秒後封鎖區域</span>
-          <span id="ai-alive" class="bg-slate-800 px-2 py-0.5 rounded text-emerald-400">嗡嗡阿伯：存活</span>
+          <div></div> <!-- 保持左右對稱的佔位 -->
         </div>
       </header>
 
@@ -90,8 +117,12 @@
       <main class="flex-1 p-3 flex flex-col justify-between gap-2 overflow-hidden relative">
         <div id="craft-alert-box" class="hidden"></div>
 
-        <!-- 探索面板 -->
-        <div id="drop-zone-yellow" ondragover="allowDrop(event)" ondrop="handleDropToYellow(event)" class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3.5 relative transition">
+        <!-- 探索面板 (黃色區域：拖曳至此黃區觸發 dragover 高亮) -->
+        <div id="drop-zone-yellow" 
+             ondragover="handleDragOverYellow(event)" 
+             ondragleave="handleDragLeaveYellow(event)" 
+             ondrop="handleDropToYellow(event)" 
+             class="flex-1 flex flex-col justify-between bg-slate-800/40 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3.5 relative transition">
           
           <!-- 上方：地點標示 + 右上角移動按鈕 -->
           <div class="flex justify-between items-start border-b border-slate-700/60 pb-2">
@@ -115,9 +146,9 @@
             </button>
           </div>
 
-          <!-- 下方：跨整條的透明即時戰況廣播 -->
+          <!-- 下方：跨整條的透明即時戰況廣播 (套用極簡微型捲軸 .custom-scrollbar) -->
           <div class="pt-2 border-t border-slate-700/40">
-            <div class="h-[68px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1">
+            <div class="h-[68px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1 custom-scrollbar">
               <div id="game-log" class="space-y-1"></div>
             </div>
           </div>
@@ -165,8 +196,12 @@
           </div>
         </div>
 
-        <!-- 紅色區域：人物狀態區 + 6格裝備槽 -->
-        <div id="drop-zone-red" ondragover="allowDrop(event)" ondrop="handleDropToRed(event)" class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
+        <!-- 紅色區域：人物狀態區 (已刪除紅圈 2: "(自動回復)" 字樣) + 6格裝備槽 -->
+        <div id="drop-zone-red" 
+             ondragover="handleDragOverRed(event)" 
+             ondragleave="handleDragLeaveRed(event)" 
+             ondrop="handleDropToRed(event)" 
+             class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
           
           <div class="w-2/3 bg-slate-950 p-3 rounded-lg border border-slate-800 flex flex-col justify-between">
             <div>
@@ -187,7 +222,7 @@
 
               <div>
                 <div class="flex justify-between text-[11px] mb-0.5">
-                  <span class="text-sky-400 font-bold">體力 (自動回復)</span>
+                  <span class="text-sky-400 font-bold">體力</span>
                   <span id="sp-text" class="font-mono text-slate-300">100/100</span>
                 </div>
                 <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
@@ -202,13 +237,13 @@
         </div>
       </main>
 
-      <!-- 底部隨身背包 -->
+      <!-- 底部隨身背包 (已刪除紅圈 3: 頂部說明文字；已刪除紅圈 4 & 5: 格子內的 "點擊詳情/抱鬼" 副標題) -->
       <footer class="p-3 bg-slate-950 border-t border-slate-800 pb-4">
         <div class="flex justify-between text-[11px] text-slate-400 mb-1.5">
-          <span>隨身背包 (點擊背包物品查看幹話描述或操作)</span>
+          <span>隨身背包</span>
           <span id="bag-count">0 / 6</span>
         </div>
-        <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[64px]"></div>
+        <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[60px]"></div>
       </footer>
 
       <!-- 物品詳細資訊與幹話描述檢視彈窗 -->
@@ -271,19 +306,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=17 強制破除快取) -->
-  <script src="items_weapon.js?v=17"></script>
-  <script src="items_armor.js?v=17"></script>
-  <script src="items_material.js?v=17"></script>
-  <script src="items_food.js?v=17"></script>
-  <script src="recipes.js?v=17"></script>
-  <script src="maps.js?v=17"></script>
-  <script src="characters.js?v=17"></script>
-  <script src="game_config.js?v=17"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=18 強制破除快取) -->
+  <script src="items_weapon.js?v=18"></script>
+  <script src="items_armor.js?v=18"></script>
+  <script src="items_material.js?v=18"></script>
+  <script src="items_food.js?v=18"></script>
+  <script src="recipes.js?v=18"></script>
+  <script src="maps.js?v=18"></script>
+  <script src="characters.js?v=18"></script>
+  <script src="game_config.js?v=18"></script>
   
-  <script src="lobby.js?v=17"></script>
-  <script src="ai.js?v=17"></script>
-  <script src="combat.js?v=17"></script>
-  <script src="main.js?v=17"></script>
+  <script src="lobby.js?v=18"></script>
+  <script src="ai.js?v=18"></script>
+  <script src="combat.js?v=18"></script>
+  <script src="main.js?v=18"></script>
 </body>
 </html>
