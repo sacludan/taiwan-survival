@@ -67,7 +67,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone 18 Ratio (402x874) • MVP v0.15
+        iPhone 18 Ratio (402x874) • MVP v0.16
       </div>
     </div>
 
@@ -106,23 +106,23 @@
             </button>
           </div>
 
-          <!-- 下方：左側透明即時戰況日誌 + 右下角「休息」與「移動」按鈕 -->
-          <div class="flex items-end gap-2 pt-2 border-t border-slate-700/40">
-            <!-- 透明即時戰況廣播 -->
-            <div class="flex-1 h-[72px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1">
+          <!-- 下方：左側寬敞戰況日誌 + 右下角上下排列的「休息」與「移動」按鈕 -->
+          <div class="flex items-end gap-2.5 pt-2 border-t border-slate-700/40">
+            <!-- 透明即時戰況廣播 (享有更寬廣空間) -->
+            <div class="flex-1 h-[76px] overflow-y-auto space-y-1 text-[11px] font-mono text-slate-300 pr-1">
               <div id="game-log" class="space-y-1"></div>
             </div>
 
-            <!-- 右下角雙按鈕 (休息 + 移動) -->
-            <div class="flex gap-2 shrink-0">
-              <button onclick="playerRest()" class="w-16 h-14 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border-2 border-sky-500/80 rounded-lg flex flex-col items-center justify-center shadow-md transition">
+            <!-- 右下角雙按鈕 (上：休息，下：移動) -->
+            <div class="flex flex-col gap-1.5 shrink-0">
+              <button onclick="playerRest()" class="w-18 h-9 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-sky-500/80 rounded-lg flex items-center justify-center gap-1 shadow transition">
                 <span class="text-xs font-black text-sky-400">休息</span>
-                <span class="text-[9px] text-slate-400 mt-0.5">+25體</span>
+                <span class="text-[9px] text-slate-400">+25體</span>
               </button>
 
-              <button onclick="openMapModal()" class="w-16 h-14 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-lg flex flex-col items-center justify-center shadow-md transition">
+              <button onclick="openMapModal()" class="w-18 h-9 bg-slate-900/90 hover:bg-slate-800 active:scale-95 border border-amber-500/80 rounded-lg flex items-center justify-center gap-1 shadow transition">
                 <span class="text-xs font-black text-amber-400">移動</span>
-                <span class="text-[9px] text-slate-400 mt-0.5">地圖</span>
+                <span class="text-[9px] text-slate-400">地圖</span>
               </button>
             </div>
           </div>
@@ -276,19 +276,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=15 強制破除快取) -->
-  <script src="items_weapon.js?v=15"></script>
-  <script src="items_armor.js?v=15"></script>
-  <script src="items_material.js?v=15"></script>
-  <script src="items_food.js?v=15"></script>
-  <script src="recipes.js?v=15"></script>
-  <script src="maps.js?v=15"></script>
-  <script src="characters.js?v=15"></script>
-  <script src="game_config.js?v=15"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=16 強制破除快取) -->
+  <script src="items_weapon.js?v=16"></script>
+  <script src="items_armor.js?v=16"></script>
+  <script src="items_material.js?v=16"></script>
+  <script src="items_food.js?v=16"></script>
+  <script src="recipes.js?v=16"></script>
+  <script src="maps.js?v=16"></script>
+  <script src="characters.js?v=16"></script>
+  <script src="game_config.js?v=16"></script>
   
-  <script src="lobby.js?v=15"></script>
-  <script src="ai.js?v=15"></script>
-  <script src="combat.js?v=15"></script>
-  <script src="main.js?v=15"></script>
+  <script src="lobby.js?v=16"></script>
+  <script src="ai.js?v=16"></script>
+  <script src="combat.js?v=16"></script>
+  <script src="main.js?v=16"></script>
 </body>
 </html>
