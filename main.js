@@ -1,5 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
+ * 完整無缺漏版
  */
 const state = {
   timeSec: 0,
