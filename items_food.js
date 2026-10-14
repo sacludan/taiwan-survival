@@ -1,7 +1,7 @@
 /**
  * 【資料模組：台灣小吃 items_food.js】
  */
-const FOODS = {
+const FOODS_DATA = {
   items: {
     sausage:       { id: "sausage", name: "烤香腸", type: "food", hp: 25, sp: 10 },
     rice_sausage:  { id: "rice_sausage", name: "糯米腸", type: "food", hp: 20, sp: 15 },
