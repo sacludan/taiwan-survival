@@ -1,6 +1,5 @@
 /**
- * 【模組：核心管家 main.js】
- * 負責遊戲狀態管理、搜刮、一鍵合成、縮圈計時、UI 畫面渲染與大廳連動初始化
+ * 【模組：核心管家 main.js (防呆修復版)】
  */
 const state = {
   timeSec: 0,
@@ -15,7 +14,15 @@ const state = {
 
 // 由 lobby.js 呼叫：當玩家在大廳點擊「開始遊戲」時觸發
 function initGame() {
-  // 每次開新局時，重新深拷貝重置玩家與電腦狀態
+  console.log("initGame 被觸發，正在檢查 GAME_DATA...", typeof GAME_DATA);
+  
+  // 防呆檢查：如果 GAME_DATA 沒抓到，給它預設值避免整個畫面當掉
+  if (typeof GAME_DATA === 'undefined' || !GAME_DATA.zones) {
+    console.error("嚴重錯誤：GAME_DATA 未正確載入！請檢查各個 JS 檔案的載入順序。");
+    alert("遊戲資料載入異常，請確認各個資料積木檔案是否已上傳到 GitHub！");
+    return;
+  }
+
   state.timeSec = 0;
   state.nextCloseSec = 45;
   state.closedZones = [];
@@ -25,8 +32,8 @@ function initGame() {
   state.player = JSON.parse(JSON.stringify(GAME_DATA.initialPlayer));
   state.ai = JSON.parse(JSON.stringify(GAME_DATA.initialAI));
 
-  // 清空畫面上可能殘留的舊記錄
-  document.getElementById("game-log").innerHTML = "";
+  const logEl = document.getElementById("game-log");
+  if (logEl) logEl.innerHTML = "";
 
   addLog("🎮 台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
   updateUI();
@@ -40,10 +47,9 @@ function startGameLoop() {
   let tickCount = 0;
   
   gameInterval = setInterval(() => {
-    if (state.gameOver) return;
+    if (state.gameOver || !state.player) return;
     tickCount++;
 
-    // 半即時戰鬥 2.5 秒自動交鋒進度條
     if (state.inCombat) {
       state.clashProgress += 4;
       const remainSec = Math.max(0, (2.5 - (state.clashProgress / 100) * 2.5)).toFixed(1);
@@ -58,7 +64,6 @@ function startGameLoop() {
       }
     }
 
-    // 每 1 秒觸發一次世界時間
     if (tickCount % 10 === 0) {
       state.timeSec++;
       if (state.player.skillCd > 0) state.player.skillCd--;
@@ -68,7 +73,6 @@ function startGameLoop() {
         timerEl.textContent = `⏱️ ${Math.floor(state.timeSec/60).toString().padStart(2,'0')}:${(state.timeSec%60).toString().padStart(2,'0')}`;
       }
 
-      // 縮圈計時
       const remainClose = state.nextCloseSec - state.timeSec;
       const warningEl = document.getElementById("zone-warning");
       if (warningEl && state.closedZones.length < 3) {
@@ -92,7 +96,6 @@ function startGameLoop() {
         warningEl.textContent = `🔥 最終決戰區！強制死鬥！`;
       }
 
-      // 每 3 秒讓電腦 AI 動一次大腦
       if (state.timeSec % 3 === 0) {
         runAIBrain();
       }
@@ -114,6 +117,7 @@ function addLog(msg, color = "text-slate-300") {
 }
 
 function findAvailableRecipes(unit) {
+  if (!GAME_DATA || !GAME_DATA.recipes) return [];
   const ownedIds = [...unit.bag];
   if (unit.weapon) ownedIds.push(unit.weapon.id);
   if (unit.armor) ownedIds.push(unit.armor.id);
@@ -226,16 +230,25 @@ function useBagItem(index) {
 }
 
 function updateUI() {
-  if (!state.player || !state.ai) return;
+  if (!state.player || !state.ai || typeof GAME_DATA === 'undefined') return;
   const p = state.player; const ai = state.ai;
 
-  document.getElementById("player-stats").textContent = `⚔️ 攻擊 ${getTotalAtk(p)} | 🛡️ 防禦 ${getTotalDef(p)}`;
+  const statEl = document.getElementById("player-stats");
+  if (statEl) statEl.textContent = `⚔️ 攻擊 ${getTotalAtk(p)} | 🛡️ 防禦 ${getTotalDef(p)}`;
+
   const zObj = GAME_DATA.zones.find(z => z.id === p.zone);
-  document.getElementById("current-zone-badge").textContent = `📍 ${zObj.name}`;
-  document.getElementById("hp-bar").style.width = `${(p.hp / p.maxHp) * 100}%`;
-  document.getElementById("hp-text").textContent = `${p.hp}/${p.maxHp}`;
-  document.getElementById("sp-bar").style.width = `${(p.sp / p.maxSp) * 100}%`;
-  document.getElementById("sp-text").textContent = `${p.sp}/${p.maxSp}`;
+  const badgeEl = document.getElementById("current-zone-badge");
+  if (badgeEl && zObj) badgeEl.textContent = `📍 ${zObj.name}`;
+
+  const hpBar = document.getElementById("hp-bar");
+  if (hpBar) hpBar.style.width = `${(p.hp / p.maxHp) * 100}%`;
+  const hpText = document.getElementById("hp-text");
+  if (hpText) hpText.textContent = `${p.hp}/${p.maxHp}`;
+
+  const spBar = document.getElementById("sp-bar");
+  if (spBar) spBar.style.width = `${(p.sp / p.maxSp) * 100}%`;
+  const spText = document.getElementById("sp-text");
+  if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
   const guideEl = document.getElementById("guide-text");
   if (guideEl) guideEl.textContent = "💡 提示：在立法院找折凳，去北車找鐵釘，合出七種武器之首！";
@@ -253,44 +266,14 @@ function updateUI() {
   }
 
   if (state.inCombat) {
-    document.getElementById("explore-panel").classList.add("hidden");
-    document.getElementById("combat-panel").classList.remove("hidden");
-    document.getElementById("enemy-stats").textContent = `⚔️ 攻擊 ${getTotalAtk(ai)} | 🛡️ 防禦 ${getTotalDef(ai)}`;
-    document.getElementById("enemy-hp-text").textContent = `HP: ${ai.hp}/${ai.maxHp}`;
-    document.getElementById("enemy-hp-bar").style.width = `${(ai.hp / ai.maxHp) * 100}%`;
-  } else {
-    document.getElementById("explore-panel").classList.remove("hidden");
-    document.getElementById("combat-panel").classList.add("hidden");
-    document.getElementById("zone-title").textContent = zObj.name;
-    document.getElementById("zone-drops").textContent = `可搜刮：${zObj.drops.map(id => GAME_DATA.items[id].name).join("、")}`;
-  }
+    const expPanel = document.getElementById("explore-panel");
+    const comPanel = document.getElementById("combat-panel");
+    if (expPanel) expPanel.classList.add("hidden");
+    if (comPanel) comPanel.classList.remove("hidden");
 
-  document.getElementById("map-grid").innerHTML = GAME_DATA.zones.map(z => {
-    const isClosed = state.closedZones.includes(z.id);
-    const isCurrent = p.zone === z.id;
-    let btnStyle = "bg-slate-800 border-slate-700 text-slate-200";
-    if (isCurrent) btnStyle = "bg-indigo-900 border-indigo-500 text-white";
-    if (isClosed) btnStyle = "bg-rose-950 border-rose-800 text-rose-500 line-through opacity-60";
-    return `<button onclick="moveZone('${z.id}')" class="p-2.5 rounded-lg border text-left ${btnStyle}"><div>${z.name}</div></button>`;
-  }).join("");
-
-  document.getElementById("equip-weapon").textContent = p.weapon ? `${p.weapon.name} (+${p.weapon.atk})` : "赤手空拳 (+0)";
-  document.getElementById("equip-armor").textContent = p.armor ? `${p.armor.name} (+${p.armor.def})` : "布衣 (+0)";
-  document.getElementById("bag-count").textContent = `${p.bag.length} / 6`;
-
-  document.getElementById("inventory-grid").innerHTML = Array.from({length: 6}, (_, i) => {
-    if (p.bag[i]) {
-      const it = GAME_DATA.items[p.bag[i]];
-      return `<button onclick="useBagItem(${i})" class="bg-slate-800 border border-slate-700 rounded p-1.5 text-left h-14"><div class="text-xs font-bold truncate">${it.name}</div></button>`;
-    }
-    return `<div class="bg-slate-900 border border-slate-800 rounded p-1.5 text-center text-slate-600 h-14 flex items-center justify-center text-xs">空</div>`;
-  }).join("");
-}
-
-function endGame(isWin, reason) {
-  state.gameOver = true;
-  document.getElementById("gameover-modal").classList.remove("hidden");
-  document.getElementById("gameover-icon").textContent = isWin ? "🏆" : "🚑";
-  document.getElementById("gameover-title").textContent = isWin ? "大吉大利！" : "出師未捷...";
-  document.getElementById("gameover-desc").textContent = reason;
-}
+    const enemyStats = document.getElementById("enemy-stats");
+    if (enemyStats) enemyStats.textContent = `⚔️ 攻擊 ${getTotalAtk(ai)} | 🛡️ 防禦 ${getTotalDef(ai)}`;
+    const enemyHpText = document.getElementById("enemy-hp-text");
+    if (enemyHpText) enemyHpText.textContent = `HP: ${ai.hp}/${ai.maxHp}`;
+    const enemyHpBar = document.getElementById("enemy-hp-bar");
+    if (enemyHpBar)
