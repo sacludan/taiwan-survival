@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 修正裝備智慧替換邏輯：舊裝備直接補回原背包格子，實現完美置換
+ * 裝備欄位改為純圖示；點擊裝備與隨身背包均可跳出包含台灣幹話描述的詳細檢視彈窗
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -8,12 +8,12 @@ const DEV_CONFIG = {
 };
 
 const EQUIP_SLOT_SVGS = {
-  weapon: `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
-  head:   `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
-  chest:  `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
-  arm:    `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
-  leg:    `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v11l-3 4v3h14v-3l-3-4V3H7z"/></svg>`,
-  acc:    `<svg class="w-6 h-6 opacity-25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
+  weapon: `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
+  head:   `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
+  chest:  `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
+  arm:    `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
+  leg:    `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v11l-3 4v3h14v-3l-3-4V3H7z"/></svg>`,
+  acc:    `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
 const state = {
@@ -48,13 +48,13 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】裝備替換已修正：舊裝備會直接補回原背包位置！", "text-emerald-400 font-bold");
+    addLog("【測試模式】點擊裝備欄位或背包物品，即可查看幹話與詳細描述！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！點擊上方【搜刮此區域】收集材料！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
-  closeItemActionModal();
+  closeItemInfoModal();
   updateUI();
   startGameLoop();
 }
@@ -160,16 +160,11 @@ function craftItem(unit, recipe, isPlayer = true) {
 
   const newItem = GAME_DATA.items[recipe.result];
   if (newItem.type === "weapon" && (!unit.weapon || newItem.score > unit.weapon.score)) {
-    if (unit.weapon) {
-      // 合成自動裝備時，舊武器補回背包
-      unit.bag.push(unit.weapon.id);
-    }
+    if (unit.weapon) unit.bag.push(unit.weapon.id);
     unit.weapon = newItem;
     if (isPlayer) addLog(`合成神武並自動裝備：【${newItem.name}】！`, "text-amber-400 font-bold");
   } else if (newItem.type === "armor" && (!unit.armor || newItem.score > unit.armor.score)) {
-    if (unit.armor) {
-      unit.bag.push(unit.armor.id);
-    }
+    if (unit.armor) unit.bag.push(unit.armor.id);
     unit.armor = newItem;
     if (isPlayer) addLog(`合成防具並自動穿戴：【${newItem.name}】！`, "text-sky-400 font-bold");
   } else {
@@ -285,7 +280,7 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
-// 【拖曳互動與裝備精準置換系統】
+// 【拖曳互動與智慧裝備置換系統】
 // ==========================================
 let draggedBagIndex = null;
 
@@ -298,7 +293,6 @@ function allowDrop(event) {
   event.preventDefault();
 }
 
-// 拖曳到上方黃色區域 👉 丟棄道具
 function handleDropToYellow(event) {
   event.preventDefault();
   if (draggedBagIndex === null || !state.player) return;
@@ -312,7 +306,6 @@ function handleDropToYellow(event) {
   updateUI();
 }
 
-// 拖曳到下方紅色區域 👉 裝備置換 或 吃掉食物
 function handleDropToRed(event) {
   event.preventDefault();
   if (draggedBagIndex === null || !state.player) return;
@@ -327,26 +320,23 @@ function handleDropToRed(event) {
   }
 
   if (item.type === "food") {
-    // 食物直接食用
     p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
     p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
     p.bag.splice(index, 1);
     addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
   } 
   else if (item.type === "weapon") {
-    // 武器置換：新武器佔據背包原格，舊武器補回該格
     const oldWeapon = p.weapon;
     p.weapon = item;
     if (oldWeapon) {
-      p.bag[index] = oldWeapon.id; // 舊裝備直接放回同一個背包格子
+      p.bag[index] = oldWeapon.id;
       addLog(`換上武器【${item.name}】，原武器【${oldWeapon.name}】已放回背包！`, "text-amber-300 font-bold");
     } else {
-      p.bag.splice(index, 1); // 如果本來沒裝備，直接消耗背包該格
+      p.bag.splice(index, 1);
       addLog(`裝備武器【${item.name}】！`, "text-amber-300");
     }
   } 
   else if (item.type === "armor") {
-    // 防具置換：新防具佔據背包原格，舊防具補回該格
     const oldArmor = p.armor;
     p.armor = item;
     if (oldArmor) {
@@ -366,132 +356,199 @@ function handleDropToRed(event) {
 }
 
 // ==========================================
-// 【背包點擊懸浮選單系統 (支援精準置換)】
+// 【詳細資訊檢視彈窗系統 (Item Info Modal)】
 // ==========================================
-let currentSelectedBagIndex = null;
+let activeInspectTarget = { type: null, indexOrKey: null };
 
-function clickBagItem(index) {
+// 點擊背包物品
+function inspectBagItem(index) {
   if (state.gameOver || !state.player) return;
   const p = state.player;
   const itemId = p.bag[index];
   if (!itemId) return;
 
   const item = GAME_DATA.items[itemId];
-  const itemName = item ? item.name : itemId;
-  currentSelectedBagIndex = index;
+  if (!item) return;
 
-  const modal = document.getElementById("item-action-modal");
-  const nameEl = document.getElementById("action-item-name");
-  const btnContainer = document.getElementById("action-buttons-container");
+  activeInspectTarget = { type: 'bag', indexOrKey: index };
+  showItemInfoModal(item, '隨身背包物品', true);
+}
 
-  if (nameEl) nameEl.textContent = itemName;
+// 點擊右側裝備欄位
+function inspectEquipSlot(slotKey) {
+  if (state.gameOver || !state.player) return;
+  const p = state.player;
+  let item = null;
+  let slotName = "裝備欄位";
 
+  if (slotKey === 'weapon') { item = p.weapon; slotName = "武器部位"; }
+  else if (slotKey === 'head') { item = p.armor; slotName = "頭部防具"; }
+  else if (slotKey === 'chest') { item = p.chest; slotName = "胸部防具"; }
+  else if (slotKey === 'arm') { item = p.arm; slotName = "手臂裝備"; }
+  else if (slotKey === 'leg') { item = p.leg; slotName = "腿部裝備"; }
+  else if (slotKey === 'acc') { item = p.acc; slotName = "飾品裝備"; }
+
+  if (!item) {
+    addLog(`該裝備欄目前是空的。`, "text-slate-500");
+    return;
+  }
+
+  activeInspectTarget = { type: 'equip', indexOrKey: slotKey };
+  showItemInfoModal(item, slotName, false);
+}
+
+function showItemInfoModal(item, categoryText, isFromBag) {
+  const modal = document.getElementById("item-info-modal");
+  const catEl = document.getElementById("info-item-category");
+  const nameEl = document.getElementById("info-item-name");
+  const statEl = document.getElementById("info-item-stat");
+  const descEl = document.getElementById("info-item-desc");
+  const btnContainer = document.getElementById("info-buttons-container");
+
+  if (catEl) catEl.textContent = categoryText;
+  if (nameEl) nameEl.textContent = item.name;
+
+  // 屬性與功能顯示
+  let statStr = "";
+  if (item.type === "weapon") statStr = `攻擊力 +${item.atk}`;
+  else if (item.type === "armor") statStr = `防禦力 +${item.def}`;
+  else if (item.type === "food") statStr = `回血 +${item.hp || 0} / 體力 +${item.sp || 0}`;
+  else statStr = `素材道具`;
+  if (statEl) statEl.textContent = statStr;
+
+  // 幹話描述
+  if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資，據說藏有不可告人的祕密。";
+
+  // 動態按鈕
   let buttonsHTML = "";
-  if (item && (item.type === "weapon" || item.type === "armor")) {
-    buttonsHTML = `
-      <button onclick="executeBagAction('equip')" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-sm shadow transition">裝備 (自動替換)</button>
-      <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
-    `;
-  } else if (item && item.type === "food") {
-    buttonsHTML = `
-      <button onclick="executeBagAction('use')" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-sm shadow transition">使用 (食用)</button>
-      <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
-    `;
+  if (isFromBag) {
+    if (item.type === "weapon" || item.type === "armor") {
+      buttonsHTML = `<button onclick="modalActionEquip()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow transition">裝備 (自動替換)</button>`;
+    } else if (item.type === "food") {
+      buttonsHTML = `<button onclick="modalActionUse()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow transition">使用 (食用)</button>`;
+    }
+    buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
   } else {
-    buttonsHTML = `
-      <button onclick="executeBagAction('drop')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-sm transition">丟棄</button>
-    `;
+    // 裝備中狀態，提供解除裝備
+    buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (放回背包)</button>`;
   }
 
   if (btnContainer) btnContainer.innerHTML = buttonsHTML;
   if (modal) modal.classList.remove("hidden");
 }
 
-function closeItemActionModal(event) {
-  const modal = document.getElementById("item-action-modal");
+function closeItemInfoModal(event) {
+  const modal = document.getElementById("item-info-modal");
   if (modal) modal.classList.add("hidden");
-  currentSelectedBagIndex = null;
+  activeInspectTarget = { type: null, indexOrKey: null };
 }
 
-function executeBagAction(actionType) {
-  if (currentSelectedBagIndex === null || !state.player) return;
+// 彈窗內按鈕動作
+function modalActionUse() {
+  if (activeInspectTarget.type !== 'bag') return;
   const p = state.player;
-  const index = currentSelectedBagIndex;
+  const index = activeInspectTarget.indexOrKey;
+  const itemId = p.bag[index];
+  const item = GAME_DATA.items[itemId];
+  if (!item) return;
+
+  p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
+  p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
+  p.bag.splice(index, 1);
+  addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
+  closeItemInfoModal();
+  updateUI();
+}
+
+function modalActionEquip() {
+  if (activeInspectTarget.type !== 'bag') return;
+  const p = state.player;
+  const index = activeInspectTarget.indexOrKey;
+  const itemId = p.bag[index];
+  const item = GAME_DATA.items[itemId];
+  if (!item) return;
+
+  if (item.type === "weapon") {
+    const old = p.weapon;
+    p.weapon = item;
+    if (old) { p.bag[index] = old.id; addLog(`換上武器【${item.name}】，原武器已放回背包！`, "text-amber-300 font-bold"); }
+    else { p.bag.splice(index, 1); addLog(`裝備武器【${item.name}】！`, "text-amber-300"); }
+  } else if (item.type === "armor") {
+    const old = p.armor;
+    p.armor = item;
+    if (old) { p.bag[index] = old.id; addLog(`穿上防具【${item.name}】，原防具已放回背包！`, "text-sky-300 font-bold"); }
+    else { p.bag.splice(index, 1); addLog(`穿上防具【${item.name}】！`, "text-sky-300"); }
+  }
+  closeItemInfoModal();
+  updateUI();
+}
+
+function modalActionDrop() {
+  if (activeInspectTarget.type !== 'bag') return;
+  const p = state.player;
+  const index = activeInspectTarget.indexOrKey;
   const itemId = p.bag[index];
   const item = GAME_DATA.items[itemId];
 
-  closeItemActionModal();
-
-  if (actionType === 'use') {
-    p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
-    p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
-    p.bag.splice(index, 1);
-    addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
-    updateUI();
-  } 
-  else if (actionType === 'equip') {
-    if (item.type === "weapon") {
-      const old = p.weapon;
-      p.weapon = item;
-      if (old) {
-        p.bag[index] = old.id;
-        addLog(`換上武器【${item.name}】，原武器【${old.name}】已放回背包！`, "text-amber-300 font-bold");
-      } else {
-        p.bag.splice(index, 1);
-        addLog(`換上武器【${item.name}】！`, "text-amber-300");
-      }
-    } else if (item.type === "armor") {
-      const old = p.armor;
-      p.armor = item;
-      if (old) {
-        p.bag[index] = old.id;
-        addLog(`穿上防具【${item.name}】，原防具【${old.name}】已放回背包！`, "text-sky-300 font-bold");
-      } else {
-        p.bag.splice(index, 1);
-        addLog(`穿上防具【${item.name}】！`, "text-sky-300");
-      }
-    }
-    updateUI();
-  } 
-  else if (actionType === 'drop') {
-    p.bag.splice(index, 1);
-    addLog(`丟棄了【${item ? item.name : itemId}】。`, "text-slate-500");
-    updateUI();
-  }
+  p.bag.splice(index, 1);
+  addLog(`丟棄了【${item ? item.name : itemId}】。`, "text-slate-500");
+  closeItemInfoModal();
+  updateUI();
 }
 
-// 支援舊版相容
-function useBagItem(index) {
-  clickBagItem(index);
+function modalActionUnequip() {
+  if (activeInspectTarget.type !== 'equip') return;
+  const p = state.player;
+  const slotKey = activeInspectTarget.indexOrKey;
+
+  if (p.bag.length >= 6) {
+    addLog(`背包已滿（6/6），無法解除裝備！`, "text-rose-400");
+    return;
+  }
+
+  if (slotKey === 'weapon' && p.weapon) {
+    p.bag.push(p.weapon.id);
+    addLog(`卸下武器【${p.weapon.name}】，已收回背包。`, "text-slate-400");
+    p.weapon = null;
+  } else if (slotKey === 'head' && p.armor) {
+    p.bag.push(p.armor.id);
+    addLog(`卸下防具【${p.armor.name}】，已收回背包。`, "text-slate-400");
+    p.armor = null;
+  }
+
+  closeItemInfoModal();
+  updateUI();
 }
 
 // ==========================================
 
+// 渲染右側 6 格裝備欄（平時不顯示文字，只顯示精緻剪影圖示與裝備狀態）
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
 
   const slots = [
-    { key: "weapon", label: "武器", item: p.weapon, svg: EQUIP_SLOT_SVGS.weapon, color: "border-amber-500/70 bg-amber-950/30 text-amber-300" },
-    { key: "head",   label: "頭部", item: p.armor,  svg: EQUIP_SLOT_SVGS.head,   color: "border-sky-500/70 bg-sky-950/30 text-sky-300" },
-    { key: "chest",  label: "衣服", item: p.chest,  svg: EQUIP_SLOT_SVGS.chest,  color: "border-emerald-500/70 bg-emerald-950/30 text-emerald-300" },
-    { key: "arm",    label: "手臂", item: p.arm,    svg: EQUIP_SLOT_SVGS.arm,    color: "border-purple-500/70 bg-purple-950/30 text-purple-300" },
-    { key: "leg",    label: "腿部", item: p.leg,    svg: EQUIP_SLOT_SVGS.leg,    color: "border-indigo-500/70 bg-indigo-950/30 text-indigo-300" },
-    { key: "acc",    label: "飾品", item: p.acc,    svg: EQUIP_SLOT_SVGS.acc,    color: "border-rose-500/70 bg-rose-950/30 text-rose-300" }
+    { key: "weapon", label: "武器", item: p.weapon, svg: EQUIP_SLOT_SVGS.weapon, activeColor: "border-amber-500/80 bg-amber-950/40" },
+    { key: "head",   label: "頭部", item: p.armor,  svg: EQUIP_SLOT_SVGS.head,   activeColor: "border-sky-500/80 bg-sky-950/40" },
+    { key: "chest",  label: "衣服", item: p.chest,  svg: EQUIP_SLOT_SVGS.chest,  activeColor: "border-emerald-500/80 bg-emerald-950/40" },
+    { key: "arm",    label: "手臂", item: p.arm,    svg: EQUIP_SLOT_SVGS.arm,    activeColor: "border-purple-500/80 bg-purple-950/40" },
+    { key: "leg",    label: "腿部", item: p.leg,    svg: EQUIP_SLOT_SVGS.leg,    activeColor: "border-indigo-500/80 bg-indigo-950/40" },
+    { key: "acc",    label: "飾品", item: p.acc,    svg: EQUIP_SLOT_SVGS.acc,    activeColor: "border-rose-500/80 bg-rose-950/40" }
   ];
 
   gridEl.innerHTML = slots.map(s => {
     if (s.item) {
-      const statStr = s.item.atk ? `+${s.item.atk}攻` : `+${s.item.def}防`;
+      // 有裝備時：只顯示圖示與小光點，點擊可檢視幹話與詳細資訊
       return `
-        <div class="h-10 rounded border ${s.color} p-1 flex flex-col justify-center items-center text-center relative overflow-hidden">
-          <div class="text-[10px] font-black leading-tight truncate w-full">${s.item.name}</div>
-          <div class="text-[9px] font-mono opacity-80">${statStr}</div>
+        <div onclick="inspectEquipSlot('${s.key}')" class="h-10 rounded border ${s.activeColor} flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
+          ${s.svg}
+          <span class="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         </div>
       `;
     }
+    // 空槽位
     return `
-      <div class="h-10 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative" title="${s.label}欄位">
+      <div class="h-10 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-60" title="${s.label} (空)">
         ${s.svg}
       </div>
     `;
@@ -629,9 +686,9 @@ function updateUI() {
         const it = GAME_DATA.items[p.bag[i]];
         const itemName = it ? it.name : p.bag[i];
         return `
-          <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="clickBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-14 transition flex flex-col justify-center cursor-grab active:cursor-grabbing select-none">
+          <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="inspectBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-14 transition flex flex-col justify-center cursor-grab active:cursor-grabbing select-none">
             <div class="text-xs font-bold truncate text-slate-100">${itemName}</div>
-            <div class="text-[9px] text-amber-400 mt-0.5">按住拖曳 / 點擊</div>
+            <div class="text-[9px] text-amber-400 mt-0.5">點擊詳情 / 拖曳</div>
           </div>
         `;
       }
