@@ -1,12 +1,10 @@
 /**
  * 【模組：戰鬥系統 combat.js】
- * 實現技能獨立 10 秒冷卻 + 動作連招機制：
- * 1. 普攻/食物後 3 秒不能做常規動作，但可立即插招放技能
- * 2. 技能本身 10 秒獨立冷卻，放完後需等待 3 秒才能做其他動作
+ * v35：完全讀取角色資料庫技能（Data-Driven Skill），支援專屬冷卻、體力消耗與技能施放效果
  */
 
 let actionCooldownTimer = 0; // 常規動作硬直 (攻擊、食物、逃跑)
-let skillCooldownTimer = 0;  // 技能專屬獨立 CD (10 秒)
+let skillCooldownTimer = 0;  // 技能專屬獨立 CD
 let combatInterval = null;
 
 function startCombat() {
@@ -25,7 +23,6 @@ function startCombat() {
   updateUI();
 }
 
-// 戰鬥倒數計時核心 (每 100ms 刷新)
 function startCombatTimer() {
   if (combatInterval) clearInterval(combatInterval);
   combatInterval = setInterval(() => {
@@ -61,25 +58,32 @@ function executeCombatAction(actionType) {
   const p = state.player;
   const ai = state.ai;
 
-  // 1. 技能判定：不受 actionCooldownTimer 限制，只看技能獨立 10 秒 CD
+  // 1. 💡 資料驅動技能判定
   if (actionType === 'skill') {
     if (skillCooldownTimer > 0) {
-      addLog(`技能專屬冷卻中（剩餘 ${Math.ceil(skillCooldownTimer)} 秒）！`, "text-slate-400");
+      addLog(`技能【${p.skill.name}】冷卻中（剩餘 ${Math.ceil(skillCooldownTimer)} 秒）！`, "text-slate-400");
       return;
     }
 
-    const skillDmg = 35 + Math.floor(Math.random() * 15);
-    ai.hp = Math.max(0, ai.hp - skillDmg);
-    addLog(`💥 大喊：「太離譜了！」施展角色專屬絕技！對 ${ai.name} 造成 <span class="text-purple-400 font-bold">${skillDmg}</span> 點爆擊！`, "text-purple-300 font-bold");
+    if (p.skill.costSp && p.sp < p.skill.costSp) {
+      addLog(`體力不足（需要 ${p.skill.costSp} 體力），無法施展【${p.skill.name}】！`, "text-rose-400");
+      return;
+    }
 
-    // 啟動技能獨立 10 秒冷卻 + 放完技能後 3 秒才能做其他動作
-    skillCooldownTimer = 10.0;
-    actionCooldownTimer = 3.0;
+    // 扣除技能體力
+    if (p.skill.costSp) p.sp -= p.skill.costSp;
+
+    // 呼叫角色專屬技能效果 cast()
+    const result = p.skill.cast(p, ai);
+    addLog(`💥 ${result.log}`, "text-purple-300 font-bold");
+
+    skillCooldownTimer = p.skill.cd || 10.0;
+    actionCooldownTimer = 3.0; // 技能後 3 秒硬直
   } 
-  // 2. 常規動作（攻擊、食物、逃跑）：受 3 秒動作硬直限制
+  // 2. 常規動作
   else {
     if (actionCooldownTimer > 0) {
-      addLog(`動作硬直中（還需 ${actionCooldownTimer} 秒），請稍候！`, "text-slate-400");
+      addLog(`動作硬直中（還需 ${actionCooldownTimer} 秒）！`, "text-slate-400");
       return;
     }
 
@@ -90,7 +94,6 @@ function executeCombatAction(actionType) {
       ai.hp = Math.max(0, ai.hp - pDmg);
       addLog(`⚔️ 你對 ${ai.name} 發動攻擊，造成 <span class="text-amber-400">${pDmg}</span> 點傷害！<span class="text-emerald-400 text-[10px]">(可立刻接技能!)</span>`, "text-amber-300");
 
-      // 攻擊後 3 秒內不能再普攻/吃補，但可以立刻接技能！
       actionCooldownTimer = 3.0;
     } 
     else if (actionType === 'food') {
@@ -122,7 +125,6 @@ function executeCombatAction(actionType) {
         p.bag.splice(bestFoodIdx, 1);
         addLog(`🍖 緊急嗑藥！吃掉了背包中最高補量的【${foodItem.name}】，回復 ${healHp} HP / ${healSp} SP！`, "text-emerald-400 font-bold");
         
-        // 吃補後 3 秒內不能再普攻/吃補，但可以立刻接技能！
         actionCooldownTimer = 3.0;
       }
     } 
@@ -137,13 +139,13 @@ function executeCombatAction(actionType) {
       const otherZones = GAME_DATA.zones.filter(z => z.id !== p.zone);
       const targetZone = otherZones[Math.floor(Math.random() * otherZones.length)];
       p.zone = targetZone.id;
-      addLog(`🏃 你施展身法成功逃離戰場，逃往【${targetZone.name}】（消耗 15 體力）！`, "text-indigo-300 font-bold");
+      addLog(`🏃 你施展身法逃離戰場，逃往【${targetZone.name}】（消耗 15 體力）！`, "text-indigo-300 font-bold");
       updateUI();
       return;
     }
   }
 
-  // 檢查 AI 是否被打敗
+  // 結算勝負
   if (ai.hp <= 0) {
     state.inCombat = false;
     ai.alive = false;
@@ -154,7 +156,7 @@ function executeCombatAction(actionType) {
     return;
   }
 
-  // AI 進行反擊
+  // AI 反擊
   const aiAtk = getTotalAtk(ai);
   const pDef = getTotalDef(p);
   const aiDmg = Math.max(2, aiAtk - pDef + Math.floor(Math.random() * 4));
@@ -174,7 +176,6 @@ function executeCombatAction(actionType) {
   updateUI();
 }
 
-// 即時更新戰鬥按鈕與提示狀態
 function updateCombatUIState() {
   const cdText = document.getElementById("combat-cooldown-text");
   const btnAtk = document.getElementById("btn-combat-atk");
@@ -182,22 +183,23 @@ function updateCombatUIState() {
   const btnFood = document.getElementById("btn-combat-food");
   const btnFlee = document.getElementById("btn-combat-flee");
 
-  if (!cdText) return;
+  if (!cdText || !state.player) return;
+  const p = state.player;
 
-  // 1. 技能按鈕獨立更新
-  if (btnSkill) {
+  // 1. 動態讀取角色的技能名稱與圖示
+  if (btnSkill && p.skill) {
     if (skillCooldownTimer > 0) {
       btnSkill.disabled = true;
       btnSkill.classList.add("opacity-40");
-      btnSkill.innerHTML = `✨ 技能 <span class="text-[9px] block">${Math.ceil(skillCooldownTimer)}s</span>`;
+      btnSkill.innerHTML = `<span>${p.skill.icon || '✨'} ${p.skill.name}</span><span class="text-[9px] block">${Math.ceil(skillCooldownTimer)}s</span>`;
     } else {
       btnSkill.disabled = false;
       btnSkill.classList.remove("opacity-40");
-      btnSkill.innerHTML = `✨ 技能 <span class="text-[9px] text-emerald-300 block">就緒</span>`;
+      btnSkill.innerHTML = `<span>${p.skill.icon || '✨'} ${p.skill.name}</span><span class="text-[9px] text-emerald-300 block">就緒</span>`;
     }
   }
 
-  // 2. 常規動作按鈕更新 (攻擊、食物、逃跑)
+  // 2. 常規動作按鈕更新
   const isActionLocked = actionCooldownTimer > 0;
   [btnAtk, btnFood, btnFlee].forEach(btn => {
     if (!btn) return;
