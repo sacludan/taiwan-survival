@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v45：加入全方位的防禦型安全取值，徹底解決 undefined 導致整個畫面凍結當機的問題
+ * v46：修復 bento 與 tw_hotdog 英文問題、新增一鍵取消追蹤功能
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -17,7 +17,7 @@ const EQUIP_SLOT_SVGS = {
 };
 
 const DEFAULT_FALLBACK_ZONES = [
-  { id: "ly", name: "立法院", drops: ["plastic_chair", "megaphone", "water_balloon", "tape"] },
+  { id: "ly", name: "立法院", drops: ["plastic_chair", "megaphone", "water_balloon", "tape", "bento"] },
   { id: "shilin", name: "士林夜市", drops: ["sausage", "sticky_rice_sausage", "milk_tea", "stinky_tofu"] },
   { id: "taipei_main", name: "台北車站", drops: ["box_cutter", "umbrella", "tape", "battery"] },
   { id: "hsinchu", name: "竹科科技廠", drops: ["laser_pointer", "battery", "tape", "water_balloon"] }
@@ -35,7 +35,6 @@ const state = {
   trackedItemId: null
 };
 
-// 安全獲取地圖清單
 function getSafeZones() {
   if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.zones && GAME_DATA.zones.length > 0) {
     return GAME_DATA.zones;
@@ -43,14 +42,12 @@ function getSafeZones() {
   return DEFAULT_FALLBACK_ZONES;
 }
 
-// 安全獲取當前地圖物件
 function getSafeCurrentZone(zoneId) {
   const zones = getSafeZones();
   const found = zones.find(z => z.id === zoneId);
   return found || zones[0] || { id: "ly", name: "立法院", drops: [] };
 }
 
-// 安全獲取配方清單
 function getSafeRecipes() {
   if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.recipes && GAME_DATA.recipes.length > 0) {
     return GAME_DATA.recipes;
@@ -61,17 +58,17 @@ function getSafeRecipes() {
   return [];
 }
 
-// 安全獲取道具物件
+// 萬能中文與道具物件解析
 function getSafeItem(itemId) {
   if (!itemId) return null;
-  
+
   if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.items && GAME_DATA.items[itemId]) {
     return GAME_DATA.items[itemId];
   }
 
-  // 跨模組安全查詢
   const pools = [
     typeof ITEMS_FOOD !== 'undefined' ? ITEMS_FOOD : null,
+    typeof window.ITEMS_FOOD !== 'undefined' ? window.ITEMS_FOOD : null,
     typeof ITEMS_WEAPON !== 'undefined' ? ITEMS_WEAPON : null,
     typeof ITEMS_ARMOR !== 'undefined' ? ITEMS_ARMOR : null,
     typeof ITEMS_MATERIAL !== 'undefined' ? ITEMS_MATERIAL : null
@@ -81,16 +78,16 @@ function getSafeItem(itemId) {
     if (p && p[itemId]) return p[itemId];
   }
 
-  if (itemId === "milk_tea" || itemId === "boba_milk_tea") {
-    return {
-      id: "milk_tea",
-      name: "全糖大冰奶",
-      type: "food",
-      hp: 20,
-      sp: 40,
-      desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！"
-    };
-  }
+  // 兜底專用防呆（徹底消除英文）
+  const fallbackDict = {
+    bento: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" },
+    lunch_box: { id: "lunch_box", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" },
+    tw_hotdog: { id: "tw_hotdog", name: "大腸包小腸", type: "food", hp: 60, sp: 30, desc: "炭烤香腸包入糯米腸，淋上甜辣醬與蒜片，台灣夜市霸主級美食！" },
+    milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
+    boba_milk_tea: { id: "boba_milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" }
+  };
+
+  if (fallbackDict[itemId]) return fallbackDict[itemId];
 
   return { id: itemId, name: itemId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
 }
@@ -140,7 +137,6 @@ function initGame(isSandbox = false) {
   state.isSearching = false;
   state.trackedItemId = null;
 
-  // 安全深拷貝角色
   if (typeof GAME_CHARACTERS !== 'undefined' && GAME_CHARACTERS.roar_brother) {
     state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
     state.player.skill.cast = GAME_CHARACTERS.roar_brother.skill.cast;
@@ -173,9 +169,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】防護機制生效，系統全面恢復運行！", "text-emerald-400 font-bold");
+    addLog("【測試模式】支援隨時取消追蹤，中文名稱全面校正！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！所有功能已安全就緒！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！所有物品皆可點擊追蹤產地與合成！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -414,6 +410,7 @@ function moveZone(targetZoneId) {
   updateUI();
 }
 
+// 💡 追蹤與取消追蹤邏輯
 function setTrackedItem(itemId) {
   const item = getSafeItem(itemId);
   if (!item) return;
@@ -421,6 +418,14 @@ function setTrackedItem(itemId) {
   state.trackedItemId = item.id;
   addLog(`🎯 已鎖定追蹤：【${item.name}】！`, "text-amber-300 font-bold");
   closeCraftBookModal();
+  closeItemInfoModal();
+  updateUI();
+}
+
+function clearTrackedItem(e) {
+  if (e) e.stopPropagation();
+  state.trackedItemId = null;
+  addLog("已取消追蹤目標。", "text-slate-400");
   closeItemInfoModal();
   updateUI();
 }
@@ -443,7 +448,22 @@ function renderTargetTracker() {
   }
 
   trackerBox.classList.remove("hidden");
-  nameEl.textContent = targetItem.name;
+  
+  // 💡 在追蹤框標題加入快捷關閉按鈕 (X)
+  trackerBox.innerHTML = `
+    <div class="flex justify-between items-center border-b border-slate-700/50 pb-1 mb-1">
+      <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
+        <span>🎯 目標追蹤</span>
+      </span>
+      <div class="flex items-center gap-1">
+        <span class="text-[11px] font-bold text-white truncate max-w-[75px]">${targetItem.name}</span>
+        <button onclick="clearTrackedItem(event)" class="text-slate-400 hover:text-rose-400 text-xs px-1 font-mono transition" title="取消追蹤">✕</button>
+      </div>
+    </div>
+    <div id="tracker-materials-list-inner" class="space-y-0.5 text-[10px] font-mono text-slate-300"></div>
+  `;
+
+  const listInner = document.getElementById("tracker-materials-list-inner");
 
   const ownedIds = [...(state.player.bag || [])];
   if (state.player.equip) {
@@ -456,7 +476,7 @@ function renderTargetTracker() {
   const recipe = recipes.find(r => r.result === targetItem.id);
 
   if (recipe) {
-    listEl.innerHTML = recipe.materials.map(mId => {
+    listInner.innerHTML = recipe.materials.map(mId => {
       const isOwned = ownedIds.includes(mId);
       const mName = getItemDisplayName(mId);
       const loc = getItemDropLocationName(mId);
@@ -481,7 +501,7 @@ function renderTargetTracker() {
     const loc = getItemDropLocationName(targetItem.id);
     const count = ownedIds.filter(id => id === targetItem.id || (targetItem.id === 'milk_tea' && id === 'boba_milk_tea')).length;
 
-    listEl.innerHTML = `
+    listInner.innerHTML = `
       <div class="space-y-0.5 pt-0.5">
         <div class="flex justify-between text-slate-300">
           <span>產地來源:</span>
@@ -595,8 +615,8 @@ function renderCraftBookList() {
             ${matBadges}
           </div>
         </div>
-        <button onclick="event.stopPropagation(); setTrackedItem('${r.result}')" class="px-2.5 py-1.5 ml-2 ${isTrackingThis ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
-          ${isTrackingThis ? '已追蹤' : '🎯 追蹤'}
+        <button onclick="event.stopPropagation(); ${isTrackingThis ? "clearTrackedItem()" : `setTrackedItem('${r.result}')`}" class="px-2.5 py-1.5 ml-2 ${isTrackingThis ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
+          ${isTrackingThis ? '✕ 取消' : '🎯 追蹤'}
         </button>
       </div>
     `;
@@ -800,11 +820,12 @@ function showItemInfoModal(item, categoryText, isFromBag) {
 
   let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2 text-xs">`;
 
+  // 💡 追蹤 / 取消追蹤 切換按鈕
   treeHTML += `
     <div class="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
-      <span class="text-[11px] text-slate-300 font-bold">追蹤此物品</span>
-      <button onclick="setTrackedItem('${item.id}')" class="px-3 py-1 ${isTrackingCurrent ? 'bg-amber-500 text-slate-950 font-black' : 'bg-indigo-950 border border-indigo-500 text-indigo-300 hover:bg-indigo-900'} active:scale-95 rounded-lg text-xs font-bold transition">
-        ${isTrackingCurrent ? '✔ 已在追蹤' : '🎯 設為追蹤目標'}
+      <span class="text-[11px] text-slate-300 font-bold">追蹤狀態</span>
+      <button onclick="${isTrackingCurrent ? "clearTrackedItem()" : `setTrackedItem('${item.id}')`}" class="px-3 py-1 ${isTrackingCurrent ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-indigo-950 border border-indigo-500 text-indigo-300 hover:bg-indigo-900'} active:scale-95 rounded-lg text-xs font-bold transition">
+        ${isTrackingCurrent ? '✕ 取消追蹤' : '🎯 設為追蹤目標'}
       </button>
     </div>
   `;
@@ -828,13 +849,14 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   if (upstream.length > 0) {
     const upstreamBadges = upstream.map(u => {
       const upName = u.resultItem ? u.resultItem.name : u.resultId;
+      const isUpTracking = state.trackedItemId === u.resultId;
       return `
         <div class="flex justify-between items-center py-1 border-b border-slate-800/60 last:border-0">
           <button onclick="inspectItemById('${u.resultId}')" class="text-indigo-300 hover:text-indigo-200 font-bold underline text-[11px] text-left truncate max-w-[170px]">
             🔺 ${upName}
           </button>
-          <button onclick="setTrackedItem('${u.resultId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-400 text-[10px] rounded border border-slate-700 font-bold">
-            🎯 追蹤
+          <button onclick="${isUpTracking ? "clearTrackedItem()" : `setTrackedItem('${u.resultId}')`}" class="px-2 py-0.5 ${isUpTracking ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 text-[10px] rounded border border-slate-700 font-bold transition">
+            ${isUpTracking ? '✕ 取消' : '🎯 追蹤'}
           </button>
         </div>
       `;
