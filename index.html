@@ -19,7 +19,7 @@
       background-color: #020617;
     }
 
-    /* 💡 外框高度直接縮小 10% (改為 90vh)，上下留白不被裁切 */
+    /* 外框縮小 10% (90vh) */
     .iphone-device-frame {
       width: 100%;
       max-width: 402px;
@@ -100,7 +100,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        Scaled 90vh Frame • MVP v0.32
+        Scaled 90vh Frame • MVP v0.33
       </div>
     </div>
 
@@ -225,14 +225,41 @@
         </div>
       </main>
 
-      <!-- 底部隨身背包 -->
-      <footer class="px-3 py-2 bg-slate-950 border-t border-slate-800">
+      <!-- 底部隨身背包與右下角離開選單按鈕 -->
+      <footer class="px-3 py-1.5 bg-slate-950 border-t border-slate-800 relative">
         <div class="flex justify-between text-[11px] text-slate-400 mb-1">
           <span>隨身背包</span>
           <span id="bag-count">0 / 6</span>
         </div>
         <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[52px]"></div>
+
+        <!-- 💡 紅圈標記位置：離開/選單按鈕 (居中偏右，不靠邊緣防誤觸) -->
+        <div class="flex justify-end pr-8 pt-1">
+          <button onclick="openExitConfirmModal()" class="px-3.5 py-1 bg-slate-800/90 hover:bg-slate-700 active:scale-95 border border-slate-700/80 rounded-lg text-[10px] font-bold text-slate-300 shadow transition flex items-center gap-1">
+            <span>⚙️ 選單 / 離開</span>
+          </button>
+        </div>
       </footer>
+
+      <!-- 💡 離開確認彈窗 (繼續遊戲 vs 離開遊戲) -->
+      <div id="exit-confirm-modal" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-[280px] rounded-2xl p-5 shadow-2xl text-center space-y-4">
+          <div class="text-3xl">⚠️</div>
+          <div>
+            <h3 class="text-base font-black text-white">遊戲暫停 / 選單</h3>
+            <p class="text-xs text-slate-400 mt-1">確定要離開目前的生存對戰嗎？</p>
+          </div>
+
+          <div class="space-y-2 pt-1">
+            <button onclick="closeExitConfirmModal()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black rounded-xl text-xs shadow transition">
+              繼續遊戲
+            </button>
+            <button onclick="exitToLobby()" class="w-full py-2.5 bg-rose-600/80 hover:bg-rose-600 active:scale-95 text-white font-black rounded-xl text-xs transition">
+              離開對戰 (回主畫面)
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- 物品詳細資訊彈窗 -->
       <div id="item-info-modal" onclick="closeItemInfoModal(event)" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
@@ -292,19 +319,37 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=32 強制破除快取) -->
-  <script src="items_weapon.js?v=32"></script>
-  <script src="items_armor.js?v=32"></script>
-  <script src="items_material.js?v=32"></script>
-  <script src="items_food.js?v=32"></script>
-  <script src="recipes.js?v=32"></script>
-  <script src="maps.js?v=32"></script>
-  <script src="characters.js?v=32"></script>
-  <script src="game_config.js?v=32"></script>
+  <script>
+    // 💡 離開選單按鈕控制邏輯
+    function openExitConfirmModal() {
+      const modal = document.getElementById("exit-confirm-modal");
+      if (modal) modal.classList.remove("hidden");
+    }
+
+    function closeExitConfirmModal() {
+      const modal = document.getElementById("exit-confirm-modal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    function exitToLobby() {
+      // 重新載入網頁返回最初主大廳
+      window.location.reload();
+    }
+  </script>
+
+  <!-- 🔗 模組引入清單 (更新為 ?v=33 強制破除快取) -->
+  <script src="items_weapon.js?v=33"></script>
+  <script src="items_armor.js?v=33"></script>
+  <script src="items_material.js?v=33"></script>
+  <script src="items_food.js?v=33"></script>
+  <script src="recipes.js?v=33"></script>
+  <script src="maps.js?v=33"></script>
+  <script src="characters.js?v=33"></script>
+  <script src="game_config.js?v=33"></script>
   
-  <script src="lobby.js?v=32"></script>
-  <script src="ai.js?v=32"></script>
-  <script src="combat.js?v=32"></script>
-  <script src="main.js?v=32"></script>
+  <script src="lobby.js?v=33"></script>
+  <script src="ai.js?v=33"></script>
+  <script src="combat.js?v=33"></script>
+  <script src="main.js?v=33"></script>
 </body>
 </html>
