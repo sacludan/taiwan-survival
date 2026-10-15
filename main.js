@@ -1,17 +1,19 @@
 /**
  * 【模組：核心管家 main.js】
- * v53：
- * 1. 實裝《黑色倖存者》風格「直式台北生存島」SVG 戰術地圖（一頁全覽、建築圖示、黑底金框膠囊名牌、📍定位針）
- * 2. 100% 對齊所有檔案的道具 ID，根除英文代碼與「合成獲得」誤判
+ * v54：
+ * 1. 頂部常駐縮圈倒數計時器（最後15秒變紅字閃爍）
+ * 2. 立法院取消特殊待遇，22區完全平等隨機縮圈
+ * 3. 身處即將縮圈預警區時，探索面板外圍觸發黃光呼吸閃爍警報
+ * 4. 左下角升級為「全物資圖鑑」，收錄所有物品並依 5 大品級分類
  */
 
 const ItemRegistry = {
   RARITY: {
-    1: { name: "普通", border: "border-slate-500", text: "text-slate-200", iconColor: "text-slate-300", badge: "bg-slate-700 text-slate-300", glow: "" },
-    2: { name: "精良", border: "border-emerald-500", text: "text-emerald-400", iconColor: "text-emerald-400", badge: "bg-emerald-950 border border-emerald-500 text-emerald-300", glow: "shadow-sm shadow-emerald-900/40" },
-    3: { name: "稀有", border: "border-sky-500", text: "text-sky-400", iconColor: "text-sky-400", badge: "bg-sky-950 border border-sky-500 text-sky-300", glow: "shadow-sm shadow-sky-900/40" },
-    4: { name: "史詩", border: "border-amber-400", text: "text-amber-300", iconColor: "text-amber-300", badge: "bg-amber-950 border border-amber-400 text-amber-300", glow: "shadow-sm shadow-amber-900/40" },
-    5: { name: "傳說", border: "border-rose-500", text: "text-rose-400", iconColor: "text-rose-400", badge: "bg-rose-950 border border-rose-500 text-rose-300", glow: "shadow-sm shadow-rose-900/50" }
+    1: { name: "白色普通", shortName: "普通", border: "border-slate-500", text: "text-slate-200", iconColor: "text-slate-300", badge: "bg-slate-700 text-slate-200", glow: "" },
+    2: { name: "綠色精良", shortName: "精良", border: "border-emerald-500", text: "text-emerald-400", iconColor: "text-emerald-400", badge: "bg-emerald-950 border border-emerald-500 text-emerald-300", glow: "shadow-sm shadow-emerald-900/40" },
+    3: { name: "藍色稀有", shortName: "稀有", border: "border-sky-500", text: "text-sky-400", iconColor: "text-sky-400", badge: "bg-sky-950 border border-sky-500 text-sky-300", glow: "shadow-sm shadow-sky-900/40" },
+    4: { name: "黃色史詩", shortName: "史詩", border: "border-amber-400", text: "text-amber-300", iconColor: "text-amber-300", badge: "bg-amber-950 border border-amber-400 text-amber-300", glow: "shadow-sm shadow-amber-900/40" },
+    5: { name: "紅色傳說", shortName: "傳說", border: "border-rose-500", text: "text-rose-400", iconColor: "text-rose-400", badge: "bg-rose-950 border border-rose-500 text-rose-300", glow: "shadow-sm shadow-rose-900/50" }
   },
 
   ALIAS: {
@@ -48,13 +50,16 @@ const ItemRegistry = {
     iron_sheet: 2,
     milk_tea: 2,
     stinky_tofu: 2,
-    tw_hotdog: 2,
 
-    // 🔵 藍色 (3階：二次合成)
+    // 🔵 藍色 (3階：二次合成 / 頂級夜市美食)
+    tw_hotdog: 3,
     riot_shield: 3,
 
     // 🟡 黃色 (4階：三次合成)
-    power_armor: 4
+    power_armor: 4,
+
+    // 🔴 紅色 (5階：四次合成終極神裝)
+    god_slayer_chair: 5
   },
 
   get(id) {
@@ -78,7 +83,53 @@ const ItemRegistry = {
       if (p && p[id]) return p[id];
     }
 
+    // 內建傳說展示品保底
+    if (resolvedId === "god_slayer_chair") {
+      return {
+        id: "god_slayer_chair",
+        name: "🔥弒神教椅",
+        type: "weapon",
+        atk: 55,
+        score: 100,
+        desc: "折凳流的最終神話形態。傳說只要在決賽圈舉起它，全場所有人都要起立致敬。"
+      };
+    }
+
     return { id: resolvedId, name: resolvedId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
+  },
+
+  // 💡 取得全遊戲所有不重複的標準物品清單（供圖鑑使用）
+  getAllUniqueItems() {
+    const map = new Map();
+    const pools = [
+      typeof WEAPONS_DATA !== 'undefined' ? WEAPONS_DATA.items : null,
+      typeof ARMORS_DATA !== 'undefined' ? ARMORS_DATA.items : null,
+      typeof MATERIALS_DATA !== 'undefined' ? MATERIALS_DATA.items : null,
+      typeof FOODS_DATA !== 'undefined' ? FOODS_DATA.items : null,
+      window.ITEMS_WEAPON,
+      window.ITEMS_ARMOR,
+      window.ITEMS_MATERIAL,
+      window.ITEMS_FOOD,
+      typeof GAME_DATA !== 'undefined' ? GAME_DATA.items : null
+    ];
+
+    pools.forEach(pool => {
+      if (!pool) return;
+      Object.keys(pool).forEach(key => {
+        const canonicalId = this.ALIAS[key] || key;
+        const itemObj = pool[canonicalId] || pool[key];
+        if (itemObj && !map.has(canonicalId)) {
+          map.set(canonicalId, { ...itemObj, id: canonicalId });
+        }
+      });
+    });
+
+    // 確保 5 階紅裝代表作也在圖鑑內可預覽
+    if (!map.has("god_slayer_chair")) {
+      map.set("god_slayer_chair", this.get("god_slayer_chair"));
+    }
+
+    return Array.from(map.values());
   },
 
   getRarity(id) {
@@ -177,7 +228,7 @@ function getItemDropLocationName(itemId) {
   ));
 
   if (matchingZones.length > 0) {
-    return matchingZones.slice(0, 2).map(z => z.name).join("/");
+    return matchingZones.slice(0, 3).map(z => z.name).join(" / ");
   }
   return "合成獲得";
 }
@@ -195,7 +246,6 @@ function getMissingTrackedMaterials() {
     });
   }
 
-  // 如果追蹤的是合成品，回傳缺少的材料；如果追蹤的是單一基礎品，直接回傳自己
   if (recipe) {
     return recipe.materials.filter(mId => !ownedIds.includes(ItemRegistry.ALIAS[mId] || mId));
   } else {
@@ -256,9 +306,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】黑倖式直向台北島嶼地圖與全中文物資已就緒！", "text-emerald-400 font-bold");
+    addLog("【測試模式】全品級物資圖鑑與22區地圖已載入！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！點擊右上角地圖展開全島戰術移動！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！注意頂部縮圈倒數與黃光警報！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -283,7 +333,6 @@ function startGameLoop() {
       if (state.timeSec % 3 === 0) {
         if (state.player.sp < state.player.maxSp) {
           state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
-          updateUI();
         }
       }
 
@@ -291,16 +340,21 @@ function startGameLoop() {
       if (DEV_CONFIG.enableZoneClose) {
         const remainClose = state.nextCloseSec - state.timeSec;
 
+        // 💡 22區完全平等（移除 z.id !== 'ly' 限制），倒數 15 秒隨機抽 2 個區域預警
         if (remainClose <= 15 && remainClose > 0 && state.pendingCloseZones.length === 0) {
-          const openCandidates = allZones.filter(z => z.id !== 'ly' && !state.closedZones.includes(z.id));
+          const openCandidates = allZones.filter(z => !state.closedZones.includes(z.id));
           if (openCandidates.length > 1) {
-            const pick = openCandidates[Math.floor(Math.random() * openCandidates.length)];
-            state.pendingCloseZones = [pick.id];
-            addLog(`⚠️ 【廣播警報】${pick.name} 即將列入禁區，請儘速撤離！`, "text-amber-400 font-bold");
-            updateUI();
+            // 隨機洗牌抽 1~2 個區域（但至少保留 1 個最後決戰區）
+            const countToPick = Math.min(2, openCandidates.length - 1);
+            const shuffled = [...openCandidates].sort(() => Math.random() - 0.5);
+            const picked = shuffled.slice(0, countToPick);
+            state.pendingCloseZones = picked.map(z => z.id);
+            const names = picked.map(z => z.name).join("、");
+            addLog(`⚠️ 【縮圈預警】${names} 將在 ${remainClose} 秒後封鎖！`, "text-amber-400 font-bold");
           }
         }
 
+        // 倒數歸零：正式封鎖
         if (remainClose <= 0) {
           if (state.pendingCloseZones.length > 0) {
             state.pendingCloseZones.forEach(id => {
@@ -317,15 +371,17 @@ function startGameLoop() {
           if (state.closedZones.includes(state.player.zone)) {
             state.player.hp = Math.max(1, state.player.hp - 25);
             triggerPlayerBloodHitEffect();
-            addLog(`你滯留在禁區內遭受驅離，受到 25 點傷害！`, "text-rose-500 font-bold");
+            addLog(`⚡ 你滯留在禁區內遭受電擊驅離，受到 25 點傷害！`, "text-rose-500 font-bold");
           }
-          updateUI();
         }
       }
 
       if (DEV_CONFIG.enableNPC && state.timeSec % 4 === 0) {
         if (typeof runAIBrain === 'function') runAIBrain();
       }
+
+      // 每秒刷新頂部倒數計時與介面狀態
+      updateUI();
     }
   }, 100);
 }
@@ -628,6 +684,9 @@ function inspectItemById(itemId) {
   showItemInfoModal(item, '物品詳細情報', false);
 }
 
+// ==========================================
+// 💡 【4. 全物資圖鑑系統（依五階品級分類）】
+// ==========================================
 let currentCraftTab = 'all';
 
 function openCraftBookModal() {
@@ -645,12 +704,22 @@ function closeCraftBookModal() {
 
 function filterCraftBook(tab) {
   currentCraftTab = tab;
-  ['all', 'weapon', 'armor', 'food'].forEach(t => {
+  const tabs = ['all', 1, 2, 3, 4, 5];
+  const inactiveColors = {
+    all: "text-slate-300",
+    1: "text-slate-300",
+    2: "text-emerald-400",
+    3: "text-sky-400",
+    4: "text-amber-300",
+    5: "text-rose-400"
+  };
+
+  tabs.forEach(t => {
     const btn = document.getElementById(`craft-tab-${t}`);
     if (btn) {
       btn.className = (t === tab)
-        ? "flex-1 py-1.5 rounded-lg bg-indigo-600 text-white font-bold transition"
-        : "flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold transition";
+        ? "py-1.5 rounded-lg bg-indigo-600 text-white font-black transition shadow"
+        : `py-1.5 rounded-lg bg-slate-800 ${inactiveColors[t]} font-bold transition hover:bg-slate-700`;
     }
   });
 
@@ -661,56 +730,92 @@ function renderCraftBookList() {
   const listEl = document.getElementById("craft-recipes-list");
   if (!listEl) return;
 
-  let recipes = getSafeRecipes();
+  let allItems = ItemRegistry.getAllUniqueItems();
+  const recipes = getSafeRecipes();
 
+  // 依品級篩選
   if (currentCraftTab !== 'all') {
-    recipes = recipes.filter(r => {
-      const resItem = getSafeItem(r.result);
-      if (!resItem) return false;
-      if (currentCraftTab === 'weapon') return resItem.type === 'weapon';
-      if (currentCraftTab === 'armor') return ['head', 'chest', 'arm', 'leg', 'acc'].includes(resItem.type);
-      if (currentCraftTab === 'food') return resItem.type === 'food';
-      return true;
-    });
+    allItems = allItems.filter(it => ItemRegistry.getRarity(it.id).level === Number(currentCraftTab));
   }
 
-  if (recipes.length === 0) {
-    listEl.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">暫無相關合成公式</div>`;
+  // 排序：依品級由低到高（或同品級內武器->防具->食物->材料）
+  allItems.sort((a, b) => {
+    const rA = ItemRegistry.getRarity(a.id).level;
+    const rB = ItemRegistry.getRarity(b.id).level;
+    return rA - rB;
+  });
+
+  if (allItems.length === 0) {
+    listEl.innerHTML = `<div class="text-center text-slate-500 py-8 text-xs">此品級暫無登錄物資</div>`;
     return;
   }
 
-  listEl.innerHTML = recipes.map(r => {
-    const resItem = getSafeItem(r.result) || { id: r.result, name: r.result, atk: 0, def: 0 };
-    const rarity = ItemRegistry.getRarity(resItem.id);
-    
-    const matBadges = r.materials.map(mId => {
-      const mName = getItemDisplayName(mId);
-      const mRarity = ItemRegistry.getRarity(mId);
-      return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
-    }).join(`<span class="text-slate-500 font-bold">+</span>`);
+  const typeLabelMap = {
+    weapon: "⚔️ 武器",
+    head: "🪖 頭部",
+    chest: "👕 衣服",
+    arm: "🛡️ 手臂",
+    leg: "👟 腿部",
+    acc: "💍 飾品",
+    food: "🍖 食物",
+    material: "🔩 材料"
+  };
+
+  listEl.innerHTML = allItems.map(item => {
+    const rarity = ItemRegistry.getRarity(item.id);
+    const recipe = recipes.find(r => (ItemRegistry.ALIAS[r.result] || r.result) === item.id);
+    const typeLabel = typeLabelMap[item.type] || "📦 物資";
 
     let statTag = "";
-    if (resItem.atk) statTag = `<span class="text-amber-400 font-bold font-mono">+${resItem.atk} 攻</span>`;
-    else if (resItem.def) statTag = `<span class="text-sky-400 font-bold font-mono">+${resItem.def} 防</span>`;
-    else if (resItem.hp) statTag = `<span class="text-emerald-400 font-bold font-mono">+${resItem.hp} HP</span>`;
+    if (item.atk) statTag = `<span class="text-amber-400 font-bold font-mono text-xs">+${item.atk} 攻</span>`;
+    else if (item.def) statTag = `<span class="text-sky-400 font-bold font-mono text-xs">+${item.def} 防</span>`;
+    else if (item.hp || item.sp) {
+      const parts = [];
+      if (item.hp) parts.push(`+${item.hp}HP`);
+      if (item.sp) parts.push(`+${item.sp}SP`);
+      statTag = `<span class="text-emerald-400 font-bold font-mono text-[11px]">${parts.join(" ")}</span>`;
+    }
 
-    const isTrackingThis = state.trackedItemId === resItem.id;
+    // 判斷顯示「合成配方」還是「地圖產地」
+    let sourceInfoHTML = "";
+    if (recipe) {
+      const matBadges = recipe.materials.map(mId => {
+        const mName = getItemDisplayName(mId);
+        const mRarity = ItemRegistry.getRarity(mId);
+        return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
+      }).join(`<span class="text-slate-500 font-bold">+</span>`);
+
+      sourceInfoHTML = `
+        <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 flex-wrap">
+          <span class="text-slate-500 font-mono text-[10px]">配方:</span>
+          ${matBadges}
+        </div>
+      `;
+    } else {
+      const dropLoc = getItemDropLocationName(item.id);
+      sourceInfoHTML = `
+        <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+          <span class="text-slate-500 font-mono">產地:</span>
+          <span class="text-amber-300/90 font-bold">📍 ${dropLoc}</span>
+        </div>
+      `;
+    }
+
+    const isTrackingThis = state.trackedItemId === item.id;
 
     return `
-      <div onclick="inspectItemById('${resItem.id}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border ${isTrackingThis ? 'border-amber-400 shadow-md shadow-amber-950/40' : rarity.border} rounded-xl p-3 flex justify-between items-center transition">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-black ${rarity.text}">${resItem.name}</span>
-            <span class="text-[9px] px-1 py-0.2 rounded font-bold ${rarity.badge}">${rarity.name}</span>
+      <div onclick="inspectItemById('${item.id}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border-2 ${isTrackingThis ? 'border-amber-400 shadow-md shadow-amber-950/40' : rarity.border} rounded-xl p-2.5 flex justify-between items-center transition ${rarity.glow}">
+        <div class="min-w-0 flex-1 pr-2">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-sm font-black ${rarity.text}">${item.name}</span>
+            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${rarity.badge}">${rarity.shortName}</span>
+            <span class="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded">${typeLabel}</span>
             ${statTag}
             ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold animate-pulse">追蹤中</span>' : ''}
           </div>
-          <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5 flex-wrap">
-            <span class="text-slate-500 font-mono text-[10px]">配方:</span>
-            ${matBadges}
-          </div>
+          ${sourceInfoHTML}
         </div>
-        <button onclick="event.stopPropagation(); ${isTrackingThis ? "clearTrackedItem()" : `setTrackedItem('${resItem.id}')`}" class="px-2.5 py-1.5 ml-2 ${isTrackingThis ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
+        <button onclick="event.stopPropagation(); ${isTrackingThis ? "clearTrackedItem()" : `setTrackedItem('${item.id}')`}" class="px-2.5 py-1.5 ${isTrackingThis ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
           ${isTrackingThis ? '✕ 取消' : '🎯 追蹤'}
         </button>
       </div>
@@ -897,7 +1002,7 @@ function showItemInfoModal(item, categoryText, isFromBag) {
 
   const rarity = ItemRegistry.getRarity(item.id);
 
-  if (catEl) catEl.textContent = `${categoryText} • [${rarity.name}品質]`;
+  if (catEl) catEl.textContent = `${categoryText} • [${rarity.name}]`;
   if (nameEl) {
     nameEl.textContent = item.name;
     nameEl.className = `text-base font-black ${rarity.text} mt-0.5`;
@@ -944,6 +1049,13 @@ function showItemInfoModal(item, categoryText, isFromBag) {
         <div class="flex items-center gap-1.5 flex-wrap">
           ${matBadges}
         </div>
+      </div>
+    `;
+  } else {
+    treeHTML += `
+      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex justify-between items-center">
+        <span class="text-[10px] font-bold text-slate-400">📍【物資搜刮產地】</span>
+        <span class="text-[11px] font-bold text-amber-400">${getItemDropLocationName(item.id)}</span>
       </div>
     `;
   }
@@ -1073,7 +1185,7 @@ function renderEquipSixGrid(p) {
 }
 
 // ==========================================
-// 💡 【《黑色倖存者》風格：直式台北生存島戰術地圖】
+// 💡 【直式台北生存島戰術地圖（22區平等）】
 // ==========================================
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
@@ -1093,7 +1205,6 @@ function renderTacticalMap() {
     }
   }
 
-  // 生成所有地標節點（絕對定位在直向島嶼畫布上）
   const nodesHTML = zones.map(z => {
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
@@ -1104,16 +1215,25 @@ function renderTacticalMap() {
       return z.drops && (z.drops.includes(mId) || z.drops.includes(targetId));
     });
 
-    // 膠囊名牌樣式 (黑倖經典黑底金屬框)
     let pillClass = "bg-slate-950/95 border border-amber-700/60 text-slate-100 shadow-md";
     let iconFilter = "drop-shadow-[0_3px_4px_rgba(0,0,0,0.9)]";
     let badgeLeft = "";
     let pinTop = "";
 
-    if (isCurrent) {
+    // 💡 若玩家身處預警區，小地圖上同時顯示定位針 + 預警紅黃框，不再被藍框蓋掉！
+    if (isCurrent && isPendingClose) {
+      pillClass = "bg-amber-950 border-2 border-amber-400 text-amber-200 animate-pulse shadow-[0_0_14px_rgba(245,158,11,0.9)]";
+      badgeLeft = `<span class="bg-amber-500 text-slate-950 text-[9px] font-black px-1 rounded-xs mr-0.5">⚠️</span>`;
+      pinTop = `
+        <div class="-mb-1 z-20 animate-bounce flex flex-col items-center">
+          <div class="w-5 h-5 rounded-full bg-amber-500 border-2 border-white text-slate-950 text-[10px] font-black flex items-center justify-center shadow-lg">!</div>
+          <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-white"></div>
+        </div>
+      `;
+    } else if (isCurrent) {
       pillClass = "bg-sky-950 border-2 border-sky-400 text-white shadow-[0_0_12px_rgba(56,189,248,0.7)]";
       pinTop = `
-        <div class=" -mb-1 z-20 animate-bounce flex flex-col items-center">
+        <div class="-mb-1 z-20 animate-bounce flex flex-col items-center">
           <div class="w-5 h-5 rounded-full bg-sky-500 border-2 border-white text-white text-[10px] font-black flex items-center justify-center shadow-lg">1</div>
           <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-white"></div>
         </div>
@@ -1130,12 +1250,10 @@ function renderTacticalMap() {
       badgeLeft = `<span class="text-[10px] mr-0.5">⭐</span>`;
     }
 
-    const centerStyle = z.isCenter ? "scale-110 z-20" : "z-10 hover:scale-105";
-
     return `
       <div onclick="moveZone('${z.id}')" 
            style="left: ${z.x}%; top: ${z.y}%;" 
-           class="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer select-none transition-transform active:scale-90 ${centerStyle}">
+           class="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer select-none transition-transform active:scale-90 z-10 hover:scale-105">
         ${pinTop}
         <div class="text-xl leading-none mb-0.5 ${iconFilter}">${z.icon || '🏢'}</div>
         <div class="px-1.5 py-0.5 rounded-md flex items-center whitespace-nowrap ${pillClass}">
@@ -1146,31 +1264,26 @@ function renderTacticalMap() {
     `;
   }).join("");
 
-  // 繪製直式島嶼 SVG 背景 (海洋、白色浪花海岸線、山林、都市地塊分割線) + 節點覆蓋層
   container.innerHTML = `
     <div class="relative w-full h-full rounded-2xl overflow-hidden border border-slate-700/80 shadow-inner"
          style="background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);">
       
-      <!-- 🗺️ 底層：直式生存島嶼 SVG 地形與領地分割線 -->
+      <!-- 🗺️ 底層：直式生存島嶼 SVG 地形與一般領地分割線（立法院無特殊紅框） -->
       <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 520" preserveAspectRatio="none">
         <defs>
-          <!-- 陸地漸層 -->
           <linearGradient id="islandLand" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#334155" />
             <stop offset="25%" stop-color="#1e293b" />
             <stop offset="65%" stop-color="#1e293b" />
             <stop offset="100%" stop-color="#14332a" />
           </linearGradient>
-          <!-- 海岸沙灘外發光 -->
           <filter id="coastGlow" x="-10%" y="-10%" width="120%" height="120%">
             <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.35"/>
           </filter>
         </defs>
 
-        <!-- 海洋波紋裝飾 -->
         <path d="M 15,25 Q 40,18 65,25 M 280,20 Q 310,12 340,22 M 20,495 Q 50,488 80,495" stroke="#1e3a8a" stroke-width="1.5" fill="none" opacity="0.5"/>
 
-        <!-- 島嶼外輪廓 (北岸沙灘與主陸地) -->
         <path d="M 55,22 
                  C 110,8 240,8 295,25 
                  C 330,45 342,115 335,190 
@@ -1185,36 +1298,26 @@ function renderTacticalMap() {
               stroke-width="2.5" 
               filter="url(#coastGlow)" />
 
-        <!-- 北部金色沙灘帶 -->
         <path d="M 55,22 C 110,8 240,8 295,25 C 275,38 95,38 55,22 Z" fill="#d97706" opacity="0.28" />
-
-        <!-- 南部與東側森林綠地色塊 -->
         <path d="M 240,75 C 310,80 330,140 320,200 C 270,190 250,130 240,75 Z" fill="#065f46" opacity="0.35" />
         <path d="M 35,380 C 120,370 250,375 322,400 C 310,470 260,495 180,498 C 95,495 45,465 35,380 Z" fill="#064e3b" opacity="0.45" />
 
-        <!-- 中央立法院核心禁區深色地塊 -->
-        <polygon points="135,235 225,235 240,295 120,295" fill="#090d16" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.85" />
-
-        <!-- 🗺️ 仿黑倖不規則領地分割白線 -->
+        <!-- 均勻領地分割白線 -->
         <g stroke="#94a3b8" stroke-opacity="0.32" stroke-width="1.3" fill="none">
-          <!-- 橫向疆界線 -->
           <path d="M 30,68 L 130,75 L 235,68 L 328,75" />
           <path d="M 22,128 L 120,122 L 230,130 L 335,125" />
           <path d="M 22,192 L 125,188 L 228,192 L 330,195" />
-          <path d="M 20,255 L 135,235 M 225,235 L 335,255" />
-          <path d="M 22,320 L 120,295 M 240,295 L 335,320" />
+          <path d="M 20,255 L 135,245 L 225,245 L 335,255" />
+          <path d="M 22,320 L 120,305 L 240,305 L 335,320" />
           <path d="M 28,395 L 130,385 L 235,390 L 325,395" />
 
-          <!-- 縱向疆界線 -->
-          <path d="M 125,12 L 130,75 L 120,122 L 125,188 L 135,235" />
-          <path d="M 235,12 L 235,68 L 230,130 L 228,192 L 225,235" />
-          <path d="M 180,188 L 180,235" />
-          <path d="M 120,295 L 125,385 L 120,490" />
-          <path d="M 240,295 L 235,390 L 240,490" />
+          <path d="M 125,12 L 130,75 L 120,122 L 125,188 L 135,245 L 120,305 L 125,385 L 120,490" />
+          <path d="M 235,12 L 235,68 L 230,130 L 228,192 L 225,245 L 240,305 L 235,390 L 240,490" />
+          <path d="M 180,188 L 180,245" />
         </g>
       </svg>
 
-      <!-- 📍 上層：22 個立體地標與黑倖膠囊名牌 -->
+      <!-- 📍 上層：22 個地標節點 -->
       <div class="relative w-full h-full">
         ${nodesHTML}
       </div>
@@ -1243,14 +1346,62 @@ function updateUI() {
   const spText = document.getElementById("sp-text");
   if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
+  // 💡 1. 更新頂部縮圈倒數計時器
+  const timerBadge = document.getElementById("zone-timer-badge");
+  if (timerBadge) {
+    if (!DEV_CONFIG.enableZoneClose) {
+      timerBadge.textContent = "🛠️ 測試模式 (無縮圈)";
+      timerBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-600/60 text-emerald-300";
+    } else {
+      const remain = Math.max(0, state.nextCloseSec - state.timeSec);
+      if (remain <= 15) {
+        timerBadge.textContent = `⚠️ 縮圈警報: ${remain}s`;
+        timerBadge.className = "text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-rose-600 border border-rose-300 text-white animate-pulse shadow";
+      } else {
+        timerBadge.textContent = `🔥 下次縮圈: ${remain}s`;
+        timerBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-900/90 border border-slate-700 text-amber-400";
+      }
+    }
+  }
+
+  // 💡 3. 檢查玩家當前所在區域是否為「即將縮圈預警區」或「已封鎖禁區」
+  const expPanel = document.getElementById("explore-panel");
+  const alertPill = document.getElementById("current-zone-alert-pill");
+  const isPlayerInPending = state.pendingCloseZones.includes(p.zone);
+  const isPlayerInClosed = state.closedZones.includes(p.zone);
+
+  if (expPanel) {
+    expPanel.classList.remove("zone-pending-warning", "zone-closed-danger");
+    if (isPlayerInClosed) {
+      expPanel.classList.add("zone-closed-danger");
+    } else if (isPlayerInPending) {
+      expPanel.classList.add("zone-pending-warning");
+    }
+  }
+
+  if (alertPill) {
+    if (isPlayerInClosed) {
+      alertPill.textContent = "🚫 禁區危險！請立即撤離";
+      alertPill.className = "text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white animate-bounce";
+    } else if (isPlayerInPending) {
+      alertPill.textContent = "⚠️ 本區即將封鎖！";
+      alertPill.className = "text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 animate-pulse";
+    } else {
+      alertPill.className = "hidden";
+    }
+  }
+
   renderEquipSixGrid(p);
   renderTargetTracker();
 
   const mapPing = document.getElementById("map-btn-ping");
   if (mapPing) {
     const missing = getMissingTrackedMaterials();
-    if (missing.length > 0) mapPing.classList.remove("hidden");
-    else mapPing.classList.add("hidden");
+    if (missing.length > 0 || isPlayerInPending || isPlayerInClosed) {
+      mapPing.classList.remove("hidden");
+    } else {
+      mapPing.classList.add("hidden");
+    }
   }
 
   const craftBox = document.getElementById("craft-alert-box");
@@ -1260,13 +1411,12 @@ function updateUI() {
     craftBox.innerHTML = availableRecipes.map(r => {
       const targetItem = getSafeItem(r.result);
       const rarity = ItemRegistry.getRarity(targetItem.id);
-      return `<button onclick="craftItem(state.player, getSafeRecipes().find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】(${rarity.name})</span><span>${r.desc}</span></button>`;
+      return `<button onclick="craftItem(state.player, getSafeRecipes().find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】(${rarity.shortName})</span><span>${r.desc}</span></button>`;
     }).join("");
   } else if (craftBox) { 
     craftBox.classList.add("hidden"); 
   }
 
-  const expPanel = document.getElementById("explore-panel");
   const comPanel = document.getElementById("combat-panel");
 
   if (state.inCombat && ai) {
