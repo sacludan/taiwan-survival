@@ -127,8 +127,8 @@
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-left text-xs text-slate-300 space-y-1.5 mb-2">
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
-          <p>1. 全島 22 區直式戰術地圖，點擊地標直接前往！</p>
-          <p>2. 追蹤目標材料後，地圖即時亮燈 ⭐ 標示產地！</p>
+          <p>1. 全島 22 區直式生存島地圖，點擊地標直接瞬移！</p>
+          <p>2. 追蹤目標材料後，島嶼地圖即時點亮 ⭐ 標示產地！</p>
           <p>3. 縮圈前 15 秒掛出 ⚠️ 預警，注意禁區驅離傷害！</p>
         </div>
 
@@ -142,7 +142,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.52 • 22 Tactical Zones
+        MVP v0.53 • Lumia Style Island Map
       </div>
     </div>
 
@@ -163,7 +163,7 @@
           <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5">
             <div>
               <div class="text-[9px] text-slate-400 font-mono">CURRENT LOCATION</div>
-              <h2 id="zone-title" class="text-lg font-black text-white tracking-wide">立法院</h2>
+              <h2 id="zone-title" class="text-lg font-black text-white tracking-wide">🏛️ 立法院</h2>
               <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
             </div>
 
@@ -176,7 +176,7 @@
 
           <!-- 綠色框區域：目標材料追蹤面板 -->
           <div class="relative py-1 flex items-start">
-            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-52 bg-slate-950/70 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer">
+            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-56 bg-slate-950/75 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer">
             </div>
           </div>
 
@@ -358,27 +358,29 @@
         </div>
       </div>
 
-      <!-- 💡 全新 22 區直式戰術移動地圖覆蓋層 -->
-      <div id="map-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-40 flex flex-col justify-between p-4 pt-6 pb-4 overflow-hidden">
-        <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+      <!-- 🗺️ 《黑色倖存者》風格一頁式直向生存島地圖 -->
+      <div id="map-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md z-40 flex flex-col justify-between p-3 pt-4 pb-3 overflow-hidden">
+        <div class="flex justify-between items-center pb-2 px-1">
           <div>
-            <h3 class="text-base font-black text-white flex items-center gap-1.5">
-              <span>🗺️ 戰術移動地圖 (全島22區)</span>
+            <h3 class="text-sm font-black text-white flex items-center gap-1">
+              <span>🗺️ 台北生存島 (22區全覽)</span>
             </h3>
-            <p id="map-target-hint" class="text-[10px] text-amber-400 font-bold">點擊地標直接前往 (-5 體力)</p>
+            <p id="map-target-hint" class="text-[10px] text-amber-400 font-bold">點擊島嶼地標直接前往 (-5 體力)</p>
           </div>
           <button onclick="closeMapModal()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
           </button>
         </div>
 
-        <div id="map-nodes-container" class="flex-1 overflow-y-auto space-y-3 py-2 pr-1 custom-scrollbar"></div>
+        <!-- 滿版一頁式島嶼畫布容器 -->
+        <div id="map-nodes-container" class="flex-1 w-full relative overflow-hidden"></div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-lg p-2 text-[10px] text-slate-400 flex justify-between items-center">
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-indigo-600 inline-block"></span> <span>目前</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block"></span> <span class="text-amber-300 font-bold">⭐ 缺料</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-rose-600 inline-block"></span> <span class="text-rose-400 font-bold">⚠️ 預警</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-rose-950 border border-rose-900 inline-block"></span> <span class="line-through text-slate-500">🚫 禁區</span></div>
+        <!-- 圖例說明 -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg py-1.5 px-2.5 mt-2 text-[10px] text-slate-400 flex justify-between items-center">
+          <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-sky-500 border border-white text-[8px] text-white flex items-center justify-center font-black">1</span> <span>目前位置</span></div>
+          <div class="flex items-center gap-1"><span class="text-amber-400 font-bold">⭐ 目標產地</span></div>
+          <div class="flex items-center gap-1"><span class="bg-amber-500 text-slate-950 px-1 rounded-xs font-black text-[8px]">⚠️</span> <span>即將縮圈</span></div>
+          <div class="flex items-center gap-1"><span class="text-rose-500">🚫 禁區</span></div>
         </div>
       </div>
 
@@ -412,19 +414,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (全面統一為 ?v=52 強制刷新手機快取) -->
-  <script src="items_weapon.js?v=52"></script>
-  <script src="items_armor.js?v=52"></script>
-  <script src="items_material.js?v=52"></script>
-  <script src="items_food.js?v=52"></script>
-  <script src="recipes.js?v=52"></script>
-  <script src="maps.js?v=52"></script>
-  <script src="characters.js?v=52"></script>
-  <script src="game_config.js?v=52"></script>
+  <!-- 🔗 模組引入清單 (全面升級為 ?v=53) -->
+  <script src="items_weapon.js?v=53"></script>
+  <script src="items_armor.js?v=53"></script>
+  <script src="items_material.js?v=53"></script>
+  <script src="items_food.js?v=53"></script>
+  <script src="recipes.js?v=53"></script>
+  <script src="maps.js?v=53"></script>
+  <script src="characters.js?v=53"></script>
+  <script src="game_config.js?v=53"></script>
   
-  <script src="lobby.js?v=52"></script>
-  <script src="ai.js?v=52"></script>
-  <script src="combat.js?v=52"></script>
-  <script src="main.js?v=52"></script>
+  <script src="lobby.js?v=53"></script>
+  <script src="ai.js?v=53"></script>
+  <script src="combat.js?v=53"></script>
+  <script src="main.js?v=53"></script>
 </body>
 </html>
