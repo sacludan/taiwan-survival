@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 解除地圖移動限制：全島區域皆可自由直達
+ * 零滑動全螢幕貼合版，支援超靈敏拖曳與全島自由移動
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -50,9 +50,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】地圖移動無路線限制，全島自由通行！", "text-emerald-400 font-bold");
+    addLog("【測試模式】全螢幕無滑動版，拖曳極速靈敏！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！地圖解除路線限制！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -93,11 +93,6 @@ function startGameLoop() {
           state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
           updateUI();
         }
-      }
-
-      const timerEl = document.getElementById("game-timer");
-      if (timerEl) {
-        timerEl.textContent = `${Math.floor(state.timeSec/60).toString().padStart(2,'0')}:${(state.timeSec%60).toString().padStart(2,'0')}`;
       }
 
       const warningEl = document.getElementById("zone-warning");
@@ -272,7 +267,6 @@ function closeMapModal() {
   if (modal) modal.classList.add("hidden");
 }
 
-// 💡 解除路線限制：全島任意區域皆可直接移動直達
 function isAdjacent(fromZoneId, toZoneId) {
   return true;
 }
@@ -311,7 +305,7 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
-// 【拖曳互動與動態高亮反饋系統】
+// 【超靈敏拖曳系統】
 // ==========================================
 let draggedBagIndex = null;
 
@@ -616,7 +610,6 @@ function renderTacticalMap() {
     if (!z) return "";
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
-    // 💡 解除路線限制後，地圖節點全部亮起綠框可直接前往
     const canMove = !isClosed && !isCurrent;
 
     let boxStyle = "bg-slate-900 border-slate-800 text-slate-500";
