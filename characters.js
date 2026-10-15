@@ -1,6 +1,6 @@
 /**
  * 【模組：角色與技能資料庫 characters.js】
- * 修復初始物品 ID 匹配問題
+ * v42：統一道具 ID 為 milk_tea，確保開局食物能正常點擊彈窗
  */
 const GAME_CHARACTERS = {
   roar_brother: {
@@ -14,7 +14,7 @@ const GAME_CHARACTERS = {
     maxSp: 100,
     sp: 100,
     zone: "ly",
-    bag: ["boba_milk_tea"], // 修正為正確的中文道具 ID: 全糖大冰奶
+    bag: ["milk_tea"], // 對齊 items_food.js 裡的 key
     equip: {
       weapon: null,
       head: null,
@@ -52,7 +52,7 @@ const GAME_CHARACTERS = {
     sp: 100,
     alive: true,
     zone: "ly",
-    bag: ["sausage"], // 烤香腸
+    bag: ["sausage"],
     equip: {
       weapon: null,
       head: null,
