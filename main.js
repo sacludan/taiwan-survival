@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v44：加入資料庫自動合併保護，解決載入順序衝突導致的合成表空白與搜刮失效
+ * v45：根除英文代碼顯示，徹底分離大冰奶與珍珠奶茶，修正糯米腸別名
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -42,14 +42,25 @@ function ensureGameDataIntegrity() {
   }
 }
 
+// 萬能物品安全讀取 (含雙向英文代碼解析)
 function getSafeItem(itemId) {
   ensureGameDataIntegrity();
   if (!itemId) return null;
   if (GAME_DATA.items[itemId]) return GAME_DATA.items[itemId];
-  if (itemId === "boba_milk_tea" && GAME_DATA.items["milk_tea"]) return GAME_DATA.items["milk_tea"];
-  if (itemId === "milk_tea" && GAME_DATA.items["boba_milk_tea"]) return GAME_DATA.items["boba_milk_tea"];
 
-  if (itemId === "boba_milk_tea" || itemId === "milk_tea") {
+  // 獨立食物對應防呆
+  if (itemId === "bubble_tea") {
+    return {
+      id: "bubble_tea",
+      name: "波霸珍珠奶茶",
+      type: "food",
+      hp: 50,
+      sp: 20,
+      desc: "台灣之光手搖飲！滿滿Q彈黑糖波霸，嚼勁十足，一口下去身心靈瞬間滿血。"
+    };
+  }
+
+  if (itemId === "milk_tea" || itemId === "boba_milk_tea") {
     return {
       id: "milk_tea",
       name: "全糖大冰奶",
@@ -57,6 +68,17 @@ function getSafeItem(itemId) {
       hp: 20,
       sp: 40,
       desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！"
+    };
+  }
+
+  if (itemId === "rice_sausage" || itemId === "sticky_rice_sausage") {
+    return {
+      id: "rice_sausage",
+      name: "糯米腸",
+      type: "food",
+      hp: 30,
+      sp: 15,
+      desc: "大腸包小腸的靈魂外皮，扎實飽足。"
     };
   }
 
@@ -69,15 +91,23 @@ function getItemDisplayName(itemId) {
   if (GAME_DATA.items && GAME_DATA.items[itemId]) {
     return GAME_DATA.items[itemId].name;
   }
-  if (itemId === "boba_milk_tea" || itemId === "milk_tea") return "全糖大冰奶";
+  if (itemId === "bubble_tea") return "波霸珍珠奶茶";
+  if (itemId === "milk_tea" || itemId === "boba_milk_tea") return "全糖大冰奶";
+  if (itemId === "rice_sausage" || itemId === "sticky_rice_sausage") return "糯米腸";
   if (itemId === "sausage") return "烤香腸";
+  if (itemId === "stinky_tofu") return "脆皮臭豆腐";
   return itemId;
 }
 
 function getItemDropLocationName(itemId) {
   ensureGameDataIntegrity();
   if (!GAME_DATA.zones) return "士林夜市";
-  const found = GAME_DATA.zones.find(z => z.drops && (z.drops.includes(itemId) || ((itemId === 'boba_milk_tea' || itemId === 'milk_tea') && (z.drops.includes('milk_tea') || z.drops.includes('boba_milk_tea')))));
+  const found = GAME_DATA.zones.find(z => z.drops && (
+    z.drops.includes(itemId) ||
+    (itemId === 'bubble_tea' && z.drops.includes('bubble_tea')) ||
+    (itemId === 'milk_tea' && (z.drops.includes('milk_tea') || z.drops.includes('boba_milk_tea'))) ||
+    (itemId === 'rice_sausage' && (z.drops.includes('rice_sausage') || z.drops.includes('sticky_rice_sausage')))
+  ));
   return found ? found.name : "合成獲得";
 }
 
@@ -130,7 +160,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】任何道具皆可追蹤，合成與搜刮已修復！", "text-emerald-400 font-bold");
+    addLog("【測試模式】任何道具皆可追蹤，已徹底修復英文代碼！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！所有物品皆可點擊追蹤產地與合成！", "text-amber-300 font-bold");
   }
@@ -440,7 +470,7 @@ function renderTargetTracker() {
     }).join("");
   } else {
     const loc = getItemDropLocationName(targetItem.id);
-    const count = ownedIds.filter(id => id === targetItem.id || (targetItem.id === 'milk_tea' && id === 'boba_milk_tea') || (targetItem.id === 'boba_milk_tea' && id === 'milk_tea')).length;
+    const count = ownedIds.filter(id => id === targetItem.id).length;
 
     listEl.innerHTML = `
       <div class="space-y-0.5 pt-0.5">
@@ -479,585 +509,4 @@ function inspectItemById(itemId) {
 }
 
 // ==========================================
-// 【合成圖鑑系統 (Craft Book)】
-// ==========================================
-let currentCraftTab = 'all';
-
-function openCraftBookModal() {
-  const modal = document.getElementById("craft-book-modal");
-  if (modal) {
-    modal.classList.remove("hidden");
-    filterCraftBook('all');
-  }
-}
-
-function closeCraftBookModal() {
-  const modal = document.getElementById("craft-book-modal");
-  if (modal) modal.classList.add("hidden");
-}
-
-function filterCraftBook(tab) {
-  currentCraftTab = tab;
-  ['all', 'weapon', 'armor', 'food'].forEach(t => {
-    const btn = document.getElementById(`craft-tab-${t}`);
-    if (btn) {
-      if (t === tab) {
-        btn.className = "flex-1 py-1.5 rounded-lg bg-indigo-600 text-white font-bold transition";
-      } else {
-        btn.className = "flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold transition";
-      }
-    }
-  });
-
-  renderCraftBookList();
-}
-
-function renderCraftBookList() {
-  ensureGameDataIntegrity();
-  const listEl = document.getElementById("craft-recipes-list");
-  if (!listEl) return;
-
-  let recipes = GAME_DATA.recipes || [];
-
-  if (currentCraftTab !== 'all') {
-    recipes = recipes.filter(r => {
-      const resItem = getSafeItem(r.result);
-      if (!resItem) return false;
-      if (currentCraftTab === 'weapon') return resItem.type === 'weapon';
-      if (currentCraftTab === 'armor') return ['head', 'chest', 'arm', 'leg', 'acc'].includes(resItem.type);
-      if (currentCraftTab === 'food') return resItem.type === 'food';
-      return true;
-    });
-  }
-
-  if (recipes.length === 0) {
-    listEl.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">暫無相關合成公式</div>`;
-    return;
-  }
-
-  listEl.innerHTML = recipes.map(r => {
-    const resItem = getSafeItem(r.result) || { id: r.result, name: r.result, atk: 0, def: 0 };
-    
-    const matBadges = r.materials.map(mId => {
-      const mName = getItemDisplayName(mId);
-      return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-indigo-300 rounded border border-slate-700 text-[10px] underline decoration-indigo-400/40">${mName}</button>`;
-    }).join(`<span class="text-slate-500 font-bold">+</span>`);
-
-    let statTag = "";
-    if (resItem.atk) statTag = `<span class="text-amber-400 font-bold font-mono">+${resItem.atk} 攻</span>`;
-    else if (resItem.def) statTag = `<span class="text-sky-400 font-bold font-mono">+${resItem.def} 防</span>`;
-    else if (resItem.hp) statTag = `<span class="text-emerald-400 font-bold font-mono">+${resItem.hp} HP</span>`;
-
-    const isTrackingThis = state.trackedItemId === r.result;
-
-    return `
-      <div onclick="inspectItemById('${r.result}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border ${isTrackingThis ? 'border-amber-500 shadow-md shadow-amber-950/40' : 'border-slate-800'} rounded-xl p-3 flex justify-between items-center transition">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-black text-white">${resItem.name}</span>
-            ${statTag}
-            ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold">追蹤中</span>' : ''}
-          </div>
-          <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5 flex-wrap">
-            <span class="text-slate-500 font-mono text-[10px]">配方:</span>
-            ${matBadges}
-          </div>
-        </div>
-        <button onclick="event.stopPropagation(); setTrackedItem('${r.result}')" class="px-2.5 py-1.5 ml-2 ${isTrackingThis ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
-          ${isTrackingThis ? '已追蹤' : '🎯 追蹤'}
-        </button>
-      </div>
-    `;
-  }).join("");
-}
-
-// ==========================================
-// 【觸控拖曳系統 (0 延遲)】
-// ==========================================
-let touchState = {
-  active: false,
-  isDragging: false,
-  bagIndex: null,
-  startX: 0,
-  startY: 0,
-  ghostEl: null
-};
-
-function handleItemTouchStart(e, index) {
-  if (state.gameOver || state.isSearching) return;
-  const touch = e.touches[0];
-  touchState.active = true;
-  touchState.isDragging = false;
-  touchState.bagIndex = index;
-  touchState.startX = touch.clientX;
-  touchState.startY = touch.clientY;
-}
-
-function handleItemTouchMove(e) {
-  if (!touchState.active) return;
-  const touch = e.touches[0];
-  const deltaX = Math.abs(touch.clientX - touchState.startX);
-  const deltaY = Math.abs(touch.clientY - touchState.startY);
-
-  if (!touchState.isDragging && (deltaX > 6 || deltaY > 6)) {
-    touchState.isDragging = true;
-    const itemName = getItemDisplayName(state.player.bag[touchState.bagIndex]);
-    const ghost = document.createElement("div");
-    ghost.id = "touch-drag-ghost";
-    ghost.className = "fixed pointer-events-none z-[9999] px-3 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-2xl border-2 border-white scale-110 opacity-90 transition-transform";
-    ghost.textContent = itemName;
-    document.body.appendChild(ghost);
-    touchState.ghostEl = ghost;
-  }
-
-  if (touchState.isDragging && touchState.ghostEl) {
-    e.preventDefault();
-    touchState.ghostEl.style.left = `${touch.clientX - 40}px`;
-    touchState.ghostEl.style.top = `${touch.clientY - 45}px`;
-
-    const hoveredEl = document.elementFromPoint(touch.clientX, touch.clientY);
-    const yellowZone = document.getElementById("explore-panel");
-    const redZone = document.getElementById("drop-zone-red");
-
-    if (yellowZone && yellowZone.contains(hoveredEl)) yellowZone.classList.add("drag-over-yellow");
-    else if (yellowZone) yellowZone.classList.remove("drag-over-yellow");
-
-    if (redZone && redZone.contains(hoveredEl)) redZone.classList.add("drag-over-red");
-    else if (redZone) redZone.classList.remove("drag-over-red");
-  }
-}
-
-function handleItemTouchEnd(e) {
-  if (!touchState.active) return;
-
-  const yellowZone = document.getElementById("explore-panel");
-  const redZone = document.getElementById("drop-zone-red");
-  if (yellowZone) yellowZone.classList.remove("drag-over-yellow");
-  if (redZone) redZone.classList.remove("drag-over-red");
-
-  if (touchState.ghostEl) {
-    touchState.ghostEl.remove();
-    touchState.ghostEl = null;
-  }
-
-  if (touchState.isDragging) {
-    const touch = e.changedTouches[0];
-    const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
-
-    if (yellowZone && yellowZone.contains(dropTarget)) {
-      applyItemDropToYellow(touchState.bagIndex);
-    } else if (redZone && redZone.contains(dropTarget)) {
-      applyItemDropToRed(touchState.bagIndex);
-    }
-  } else {
-    inspectBagItem(touchState.bagIndex);
-  }
-
-  touchState.active = false;
-  touchState.isDragging = false;
-  touchState.bagIndex = null;
-}
-
-function applyItemDropToYellow(bagIdx) {
-  if (bagIdx === null || !state.player) return;
-  const p = state.player;
-  const itemName = getItemDisplayName(p.bag[bagIdx]);
-
-  p.bag.splice(bagIdx, 1);
-  addLog(`丟棄了【${itemName}】。`, "text-slate-500");
-  updateUI();
-}
-
-function applyItemDropToRed(bagIdx) {
-  if (bagIdx === null || !state.player) return;
-  const p = state.player;
-  const itemId = p.bag[bagIdx];
-  const item = getSafeItem(itemId);
-  if (!item) return;
-
-  if (item.type === "food") {
-    const healHp = item.hp || 0;
-    const healSp = item.sp || 0;
-    p.hp = Math.min(p.maxHp, p.hp + healHp);
-    p.sp = Math.min(p.maxSp, p.sp + healSp);
-    p.bag.splice(bagIdx, 1);
-    addLog(`吃掉了【${item.name}】！回復 ${healHp} HP / ${healSp} SP。`, "text-emerald-400 font-bold");
-  } 
-  else if (p.equip && p.equip[item.type] !== undefined) {
-    const slot = item.type;
-    const oldItem = p.equip[slot];
-    p.equip[slot] = item;
-    if (oldItem) {
-      p.bag[bagIdx] = oldItem.id;
-      addLog(`換上【${item.name}】，原裝備【${oldItem.name}】已退回背包！`, "text-amber-300 font-bold");
-    } else {
-      p.bag.splice(bagIdx, 1);
-      addLog(`穿上【${item.name}】！`, "text-amber-300 font-bold");
-    }
-  } 
-  else {
-    addLog(`此物品為材料，無法直接裝備！`, "text-rose-400");
-  }
-
-  updateUI();
-}
-
-// ==========================================
-// 【情報彈窗：標準化數值與幹話】
-// ==========================================
-let activeInspectTarget = { type: null, indexOrKey: null };
-
-function inspectBagItem(index) {
-  if (state.gameOver || state.isSearching) return;
-  const p = state.player;
-  const rawId = p.bag[index];
-  if (!rawId) return;
-
-  const item = getSafeItem(rawId);
-  if (!item) return;
-
-  activeInspectTarget = { type: 'bag', indexOrKey: index };
-  showItemInfoModal(item, '隨身背包物品', true);
-}
-
-function inspectEquipSlot(slotKey) {
-  if (state.gameOver || state.isSearching) return;
-  const p = state.player;
-  const item = p.equip ? p.equip[slotKey] : null;
-
-  const slotLabels = {
-    weapon: "武器部位",
-    head: "頭部防具",
-    chest: "胸部衣服",
-    arm: "手臂手套",
-    leg: "腿部鞋子",
-    acc: "配件飾品"
-  };
-
-  if (!item) {
-    addLog(`【${slotLabels[slotKey] || slotKey}】目前尚未裝備任何物資。`, "text-slate-500");
-    return;
-  }
-
-  activeInspectTarget = { type: 'equip', indexOrKey: slotKey };
-  showItemInfoModal(item, slotLabels[slotKey] || "裝備欄位", false);
-}
-
-function showItemInfoModal(item, categoryText, isFromBag) {
-  const modal = document.getElementById("item-info-modal");
-  const catEl = document.getElementById("info-item-category");
-  const nameEl = document.getElementById("info-item-name");
-  const statEl = document.getElementById("info-item-stat");
-  const descEl = document.getElementById("info-item-desc");
-  const btnContainer = document.getElementById("info-buttons-container");
-
-  if (catEl) catEl.textContent = categoryText;
-  if (nameEl) nameEl.textContent = item.name;
-
-  let statStr = "";
-  if (item.type === "food") {
-    statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
-  } else if (item.atk) {
-    statStr = `攻擊力 +${item.atk}`;
-  } else if (item.def) {
-    statStr = `防禦力 +${item.def}`;
-  } else {
-    statStr = `基礎材料 (產地: ${getItemDropLocationName(item.id)})`;
-  }
-  if (statEl) statEl.textContent = statStr;
-
-  if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資。";
-
-  const { downstream, upstream } = getItemRecipeTree(item.id);
-  const isTrackingCurrent = state.trackedItemId === item.id;
-
-  let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2 text-xs">`;
-
-  // 追蹤按鈕列
-  treeHTML += `
-    <div class="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
-      <span class="text-[11px] text-slate-300 font-bold">追蹤此物品</span>
-      <button onclick="setTrackedItem('${item.id}')" class="px-3 py-1 ${isTrackingCurrent ? 'bg-amber-500 text-slate-950 font-black' : 'bg-indigo-950 border border-indigo-500 text-indigo-300 hover:bg-indigo-900'} active:scale-95 rounded-lg text-xs font-bold transition">
-        ${isTrackingCurrent ? '✔ 已在追蹤' : '🎯 設為追蹤目標'}
-      </button>
-    </div>
-  `;
-
-  // 下位合成
-  if (downstream) {
-    const matBadges = downstream.materials.map(mId => {
-      const mName = getItemDisplayName(mId);
-      return `<button onclick="inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-700 text-[10px] underline">${mName}</button>`;
-    }).join(`<span class="text-slate-500 font-bold">+</span>`);
-
-    treeHTML += `
-      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
-        <div class="text-[10px] font-bold text-slate-400 mb-1">🔻【合成來源 (下位素材)】</div>
-        <div class="flex items-center gap-1.5 flex-wrap">
-          ${matBadges}
-        </div>
-      </div>
-    `;
-  }
-
-  // 上位合成
-  if (upstream.length > 0) {
-    const upstreamBadges = upstream.map(u => {
-      const upName = u.resultItem ? u.resultItem.name : u.resultId;
-      return `
-        <div class="flex justify-between items-center py-1 border-b border-slate-800/60 last:border-0">
-          <button onclick="inspectItemById('${u.resultId}')" class="text-indigo-300 hover:text-indigo-200 font-bold underline text-[11px] text-left truncate max-w-[170px]">
-            🔺 ${upName}
-          </button>
-          <button onclick="setTrackedItem('${u.resultId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-400 text-[10px] rounded border border-slate-700 font-bold">
-            🎯 追蹤
-          </button>
-        </div>
-      `;
-    }).join("");
-
-    treeHTML += `
-      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 max-h-24 overflow-y-auto custom-scrollbar">
-        <div class="text-[10px] font-bold text-indigo-400 mb-1">🔺【可合成的高階物品 (上位衍生)】</div>
-        ${upstreamBadges}
-      </div>
-    `;
-  }
-
-  treeHTML += `</div>`;
-
-  // 操作按鈕
-  let buttonsHTML = "";
-  if (isFromBag) {
-    if (['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
-      buttonsHTML = `<button onclick="modalActionEquip()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow transition">裝備 (自動替換)</button>`;
-    } else if (item.type === "food") {
-      buttonsHTML = `<button onclick="modalActionUse()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow transition">使用 (食用)</button>`;
-    }
-    buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
-  } else if (activeInspectTarget.type === 'equip') {
-    buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (收回背包)</button>`;
-  }
-
-  if (btnContainer) {
-    btnContainer.innerHTML = treeHTML + `<div class="space-y-1.5 pt-1">${buttonsHTML}</div>`;
-  }
-
-  if (modal) modal.classList.remove("hidden");
-}
-
-function closeItemInfoModal(event) {
-  const modal = document.getElementById("item-info-modal");
-  if (modal) modal.classList.add("hidden");
-  activeInspectTarget = { type: null, indexOrKey: null };
-}
-
-function modalActionUse() {
-  if (activeInspectTarget.type !== 'bag') return;
-  applyItemDropToRed(activeInspectTarget.indexOrKey);
-  closeItemInfoModal();
-}
-
-function modalActionEquip() {
-  if (activeInspectTarget.type !== 'bag') return;
-  applyItemDropToRed(activeInspectTarget.indexOrKey);
-  closeItemInfoModal();
-}
-
-function modalActionDrop() {
-  if (activeInspectTarget.type !== 'bag') return;
-  applyItemDropToYellow(activeInspectTarget.indexOrKey);
-  closeItemInfoModal();
-}
-
-function modalActionUnequip() {
-  if (activeInspectTarget.type !== 'equip') return;
-  const p = state.player;
-  const slotKey = activeInspectTarget.indexOrKey;
-
-  if (p.bag.length >= 6) {
-    addLog(`背包已滿（6/6），無法卸下裝備！`, "text-rose-400");
-    return;
-  }
-
-  if (p.equip && p.equip[slotKey]) {
-    const unequipped = p.equip[slotKey];
-    p.bag.push(unequipped.id);
-    p.equip[slotKey] = null;
-    addLog(`卸下了【${unequipped.name}】，已收回背包。`, "text-slate-400");
-  }
-
-  closeItemInfoModal();
-  updateUI();
-}
-
-function renderEquipSixGrid(p) {
-  const gridEl = document.getElementById("equip-six-grid");
-  if (!gridEl) return;
-
-  const slots = [
-    { key: "weapon", label: "武器", item: p.equip?.weapon, svg: EQUIP_SLOT_SVGS.weapon, activeColor: "border-amber-500/80 bg-amber-950/40" },
-    { key: "head",   label: "頭部", item: p.equip?.head,   svg: EQUIP_SLOT_SVGS.head,   activeColor: "border-sky-500/80 bg-sky-950/40" },
-    { key: "chest",  label: "衣服", item: p.equip?.chest,  svg: EQUIP_SLOT_SVGS.chest,  activeColor: "border-emerald-500/80 bg-emerald-950/40" },
-    { key: "arm",    label: "手臂", item: p.equip?.arm,    svg: EQUIP_SLOT_SVGS.arm,    activeColor: "border-purple-500/80 bg-purple-950/40" },
-    { key: "leg",    label: "腿部", item: p.equip?.leg,    svg: EQUIP_SLOT_SVGS.leg,    activeColor: "border-indigo-500/80 bg-indigo-950/40" },
-    { key: "acc",    label: "飾品", item: p.equip?.acc,    svg: EQUIP_SLOT_SVGS.acc,    activeColor: "border-rose-500/80 bg-rose-950/40" }
-  ];
-
-  gridEl.innerHTML = slots.map(s => {
-    if (s.item) {
-      return `
-        <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border ${s.activeColor} flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
-          ${s.svg}
-          <span class="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        </div>
-      `;
-    }
-    return `
-      <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-60 cursor-pointer" title="${s.label} (空)">
-        ${s.svg}
-      </div>
-    `;
-  }).join("");
-}
-
-function renderTacticalMap() {
-  const container = document.getElementById("map-nodes-container");
-  if (!container || !state.player) return;
-
-  const p = state.player;
-
-  const buildNodeHTML = (zoneId) => {
-    const z = GAME_DATA.zones.find(x => x.id === zoneId);
-    if (!z) return "";
-    const isCurrent = (p.zone === z.id);
-    const isClosed = state.closedZones.includes(z.id);
-    const canMove = !isClosed && !isCurrent;
-
-    let boxStyle = "bg-slate-900 border-slate-800 text-slate-500";
-    let statusTag = "自由直達";
-
-    if (isCurrent) {
-      boxStyle = "bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-950";
-      statusTag = "目前位置";
-    } else if (isClosed) {
-      boxStyle = "bg-rose-950 border-rose-800 text-rose-500 line-through opacity-60";
-      statusTag = "禁區封鎖";
-    } else if (canMove) {
-      boxStyle = "bg-emerald-950/90 hover:bg-emerald-900 border-emerald-500 text-emerald-200 cursor-pointer shadow-md";
-      statusTag = "可前往 (-5體)";
-    }
-
-    return `
-      <button onclick="moveZone('${z.id}')" class="w-44 py-2.5 px-4 rounded-xl border-2 text-center transition active:scale-95 ${boxStyle}">
-        <div class="text-base font-black tracking-wider">${z.name}</div>
-        <div class="text-[10px] mt-0.5 opacity-80">${statusTag}</div>
-      </button>
-    `;
-  };
-
-  container.innerHTML = `
-    ${buildNodeHTML("shilin")}
-    <div class="h-4 w-0.5 bg-slate-600"></div>
-    ${buildNodeHTML("taipei_main")}
-    <div class="w-48 h-4 flex justify-around">
-      <div class="h-full w-0.5 bg-slate-600"></div>
-      <div class="h-full w-0.5 bg-slate-600"></div>
-    </div>
-    <div class="flex gap-4">
-      ${buildNodeHTML("ly")}
-      ${buildNodeHTML("hsinchu")}
-    </div>
-  `;
-}
-
-function updateUI() {
-  ensureGameDataIntegrity();
-  if (!state.player || !state.ai || typeof GAME_DATA === 'undefined') return;
-  const p = state.player; const ai = state.ai;
-
-  const statEl = document.getElementById("player-stats");
-  if (statEl) statEl.textContent = `攻擊 ${getTotalAtk(p)} | 防禦 ${getTotalDef(p)}`;
-
-  const zObj = GAME_DATA.zones.find(z => z.id === p.zone);
-
-  const hpBar = document.getElementById("hp-bar");
-  if (hpBar) hpBar.style.width = `${(p.hp / p.maxHp) * 100}%`;
-  const hpText = document.getElementById("hp-text");
-  if (hpText) hpText.textContent = `${p.hp}/${p.maxHp}`;
-
-  const spBar = document.getElementById("sp-bar");
-  if (spBar) spBar.style.width = `${(p.sp / p.maxSp) * 100}%`;
-  const spText = document.getElementById("sp-text");
-  if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
-
-  renderEquipSixGrid(p);
-  renderTargetTracker();
-
-  const craftBox = document.getElementById("craft-alert-box");
-  const availableRecipes = findAvailableRecipes(p);
-  if (availableRecipes.length > 0 && craftBox) {
-    craftBox.classList.remove("hidden");
-    craftBox.innerHTML = availableRecipes.map(r => {
-      const targetItem = getSafeItem(r.result);
-      return `<button onclick="craftItem(state.player, GAME_DATA.recipes.find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】</span><span>${r.desc}</span></button>`;
-    }).join("");
-  } else if (craftBox) { 
-    craftBox.classList.add("hidden"); 
-  }
-
-  const expPanel = document.getElementById("explore-panel");
-  const comPanel = document.getElementById("combat-panel");
-
-  if (state.inCombat) {
-    if (expPanel) expPanel.classList.add("hidden");
-    if (comPanel) comPanel.classList.remove("hidden");
-    updateCombatUI();
-  } else {
-    if (expPanel) expPanel.classList.remove("hidden");
-    if (comPanel) comPanel.classList.add("hidden");
-
-    const zoneTitle = document.getElementById("zone-title");
-    if (zoneTitle && zObj) zoneTitle.textContent = zObj.name;
-
-    const zoneDrops = document.getElementById("zone-drops");
-    if (zoneDrops && zObj) {
-      zoneDrops.textContent = `可搜刮：${zObj.drops.map(id => getItemDisplayName(id)).join("、")}`;
-    }
-  }
-
-  const mapModal = document.getElementById("map-modal");
-  if (mapModal && !mapModal.classList.contains("hidden")) {
-    renderTacticalMap();
-  }
-
-  const invGrid = document.getElementById("inventory-grid");
-  if (invGrid) {
-    invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
-      if (p.bag[i]) {
-        const itemName = getItemDisplayName(p.bag[i]);
-        return `
-          <div ontouchstart="handleItemTouchStart(event, ${i})"
-               ontouchmove="handleItemTouchMove(event)"
-               ontouchend="handleItemTouchEnd(event)"
-               class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none">
-            <div class="text-xs font-bold truncate text-slate-100">${itemName}</div>
-          </div>
-        `;
-      }
-      return `<div class="bg-slate-900 border border-slate-800 rounded p-1 text-center text-slate-600 h-12 flex items-center justify-center text-xs">空</div>`;
-    }).join("");
-  }
-}
-
-function endGame(isWin, reason) {
-  state.gameOver = true;
-  const modal = document.getElementById("gameover-modal");
-  if (modal) modal.classList.remove("hidden");
-  const icon = document.getElementById("gameover-icon");
-  if (icon) icon.textContent = isWin ? "WIN" : "LOSE";
-  const title = document.getElementById("gameover-title");
-  if (title) title.textContent = isWin ? "大吉大利！" : "出師未捷...";
-  const desc = document.getElementById("gameover-desc");
-  if (desc) desc.textContent = reason;
-}
+// 【合成圖鑑
