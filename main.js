@@ -1,26 +1,19 @@
 /**
  * 【模組：核心管家 main.js】
- * v48：
- * 1. 集中式 ItemRegistry (安全註冊、別名、品級色)
- * 2. 五階品級色 (白、綠、藍、黃、紅)
- * 3. 追蹤目標地圖即時導航聯動 (缺料區域發光標記)
- * 4. FPS 爆血暗角特效與打擊浮動跳字
+ * v51：
+ * 1. 修正防具安全帽無法裝備問題（補齊 melon_helmet, tri_treasure_helmet 的 type: 'head' 映射）
+ * 2. 裝備欄圖標跟隨品級色（邊框、SVG 圖標全套同步變色）
  */
 
-// ==========================================
-// 💡 【1. 集中式道具管理系統 (ItemRegistry)】
-// ==========================================
 const ItemRegistry = {
-  // 品級色階設定 (1:白, 2:綠, 3:藍, 4:黃, 5:紅)
   RARITY: {
-    1: { name: "普通", border: "border-slate-500", text: "text-slate-200", badge: "bg-slate-700 text-slate-300", glow: "" },
-    2: { name: "精良", border: "border-emerald-500", text: "text-emerald-400", badge: "bg-emerald-950 border border-emerald-500 text-emerald-300", glow: "shadow-sm shadow-emerald-900/40" },
-    3: { name: "稀有", border: "border-sky-500", text: "text-sky-400", badge: "bg-sky-950 border border-sky-500 text-sky-300", glow: "shadow-sm shadow-sky-900/40" },
-    4: { name: "史詩", border: "border-amber-400", text: "text-amber-300", badge: "bg-amber-950 border border-amber-400 text-amber-300", glow: "shadow-sm shadow-amber-900/40" },
-    5: { name: "傳說", border: "border-rose-500", text: "text-rose-400", badge: "bg-rose-950 border border-rose-500 text-rose-300", glow: "shadow-sm shadow-rose-900/50" }
+    1: { name: "普通", border: "border-slate-500", text: "text-slate-200", iconColor: "text-slate-300", badge: "bg-slate-700 text-slate-300", glow: "" },
+    2: { name: "精良", border: "border-emerald-500", text: "text-emerald-400", iconColor: "text-emerald-400", badge: "bg-emerald-950 border border-emerald-500 text-emerald-300", glow: "shadow-sm shadow-emerald-900/40" },
+    3: { name: "稀有", border: "border-sky-500", text: "text-sky-400", iconColor: "text-sky-400", badge: "bg-sky-950 border border-sky-500 text-sky-300", glow: "shadow-sm shadow-sky-900/40" },
+    4: { name: "史詩", border: "border-amber-400", text: "text-amber-300", iconColor: "text-amber-300", badge: "bg-amber-950 border border-amber-400 text-amber-300", glow: "shadow-sm shadow-amber-900/40" },
+    5: { name: "傳說", border: "border-rose-500", text: "text-rose-400", iconColor: "text-rose-400", badge: "bg-rose-950 border border-rose-500 text-rose-300", glow: "shadow-sm shadow-rose-900/50" }
   },
 
-  // 別名映射表
   ALIAS: {
     bubble_tea: "milk_tea",
     boba_milk_tea: "milk_tea",
@@ -28,9 +21,8 @@ const ItemRegistry = {
     lunch_box: "bento"
   },
 
-  // 現有道具五階品級評定
   RARITY_MAP: {
-    // ⚪ 白 (1階：基礎材料 / 粗糙素材)
+    // ⚪ 白 (1階)
     plastic_chair: 1,
     tape: 1,
     battery: 1,
@@ -38,27 +30,29 @@ const ItemRegistry = {
     box_cutter: 1,
     umbrella: 1,
     laser_pointer: 1,
+    melon_helmet: 1,
     sausage: 1,
     sticky_rice_sausage: 1,
     bento: 1,
 
-    // 🟢 綠 (2階：一階過渡裝 / 經典台味美食)
+    // 🟢 綠 (2階)
     reinforced_chair: 2,
     megaphone: 2,
+    tri_treasure_helmet: 2,
+    iron_sheet: 2,
     milk_tea: 2,
     stinky_tofu: 2,
-    iron_sheet: 2,
 
-    // 🔵 藍 (3階：二階精良裝備 / 頂級夜市料理)
+    // 🔵 藍 (3階)
     tw_hotdog: 3,
     electro_megaphone: 3,
     riot_shield: 3,
 
-    // 🟡 黃 (4階：高階戰術神裝)
+    // 🟡 黃 (4階)
     thunder_roar_megaphone: 4,
     power_armor: 4,
 
-    // 🔴 紅 (5階：終極破陣神物)
+    // 🔴 紅 (5階)
     god_slayer_chair: 5
   },
 
@@ -66,13 +60,28 @@ const ItemRegistry = {
     if (!id) return null;
     const resolvedId = this.ALIAS[id] || id;
 
-    // 從 GAME_DATA 取
     if (typeof GAME_DATA !== 'undefined' && GAME_DATA.items && GAME_DATA.items[resolvedId]) {
       return GAME_DATA.items[resolvedId];
     }
 
-    // 兜底專用資料
+    const pools = [
+      typeof ITEMS_ARMOR !== 'undefined' ? ITEMS_ARMOR : null,
+      typeof window.ITEMS_ARMOR !== 'undefined' ? window.ITEMS_ARMOR : null,
+      typeof ITEMS_WEAPON !== 'undefined' ? ITEMS_WEAPON : null,
+      typeof ITEMS_FOOD !== 'undefined' ? ITEMS_FOOD : null,
+      typeof ITEMS_MATERIAL !== 'undefined' ? ITEMS_MATERIAL : null
+    ];
+
+    for (const p of pools) {
+      if (p && p[resolvedId]) return p[resolvedId];
+    }
+
+    // 兜底專用防呆字典（特別補上安全帽）
     const fallbacks = {
+      melon_helmet: { id: "melon_helmet", name: "瓜皮安全帽", type: "head", def: 6, score: 10, desc: "台灣機車族標配，雖然遇到大撞擊可能先飛走，但至少防檢舉。" },
+      tri_treasure_helmet: { id: "tri_treasure_helmet", name: "正港三寶全罩盔", type: "head", def: 18, score: 25, desc: "加裝了防風鏡與行車記錄器支架，三寶出巡無人能擋。" },
+      iron_sheet: { id: "iron_sheet", name: "加厚鐵皮衣", type: "chest", def: 12, score: 15, desc: "台灣頂加違建最愛的同款鐵皮，擋風遮雨防鈍擊。" },
+      riot_shield: { id: "riot_shield", name: "抗議透明盾", type: "arm", def: 15, score: 20, desc: "立院推擠專用透明壓克力防暴盾，堅固輕便。" },
       milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
       sticky_rice_sausage: { id: "sticky_rice_sausage", name: "糯米腸", type: "food", hp: 30, sp: 15, desc: "大腸包小腸的靈魂外皮，扎實飽足。" },
       sausage: { id: "sausage", name: "烤香腸", type: "food", hp: 25, sp: 15, desc: "夜市路邊攤打香腸必備，蒜頭配著吃戰力翻倍。" },
@@ -99,18 +108,18 @@ const DEV_CONFIG = {
 };
 
 const EQUIP_SLOT_SVGS = {
-  weapon: `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
-  head:   `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
-  chest:  `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
-  arm:    `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
-  leg:    `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v11l-3 4v3h14v-3l-3-4V3H7z"/></svg>`,
-  acc:    `<svg class="w-6 h-6 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
+  weapon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
+  head:   `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
+  chest:  `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
+  arm:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
+  leg:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v11l-3 4v3h14v-3l-3-4V3H7z"/></svg>`,
+  acc:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
 const DEFAULT_FALLBACK_ZONES = [
   { id: "ly", name: "立法院", drops: ["plastic_chair", "megaphone", "water_balloon", "tape", "bento"] },
   { id: "shilin", name: "士林夜市", drops: ["sausage", "sticky_rice_sausage", "milk_tea", "stinky_tofu"] },
-  { id: "taipei_main", name: "台北車站", drops: ["box_cutter", "umbrella", "tape", "battery"] },
+  { id: "taipei_main", name: "台北車站", drops: ["box_cutter", "umbrella", "tape", "battery", "melon_helmet"] },
   { id: "hsinchu", name: "竹科科技廠", drops: ["laser_pointer", "battery", "tape", "water_balloon"] }
 ];
 
@@ -126,7 +135,6 @@ const state = {
   trackedItemId: null
 };
 
-// 💡 觸發 FPS 受擊外圈爆血特效
 function triggerPlayerBloodHitEffect() {
   const overlay = document.getElementById("fps-blood-hit-overlay");
   if (!overlay) return;
@@ -136,7 +144,6 @@ function triggerPlayerBloodHitEffect() {
   }, 220);
 }
 
-// 💡 生成戰鬥浮動跳字
 function spawnFloatingDamage(containerEl, text, isCrit = false) {
   if (!containerEl) return;
   const tag = document.createElement("div");
@@ -196,7 +203,6 @@ function getItemDropLocationName(itemId) {
   return found ? found.name : "合成獲得";
 }
 
-// 💡 取得玩家當前追蹤所缺的所有材料 ID 清單
 function getMissingTrackedMaterials() {
   if (!state.trackedItemId || !state.player) return [];
   const recipes = getSafeRecipes();
@@ -279,9 +285,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】五階品級色、地圖追蹤導航、FPS爆血受擊已啟用！", "text-emerald-400 font-bold");
+    addLog("【測試模式】防具佩戴與圖標全彩色系已完全修復！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！所有物品皆具備五階品級色！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！所有物品皆可正確穿戴！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -462,6 +468,7 @@ function executeSearchFinish() {
   const item = getSafeItem(dropId);
   const slot = item.type;
 
+  // 如果對應部位為空，自動穿戴
   if (p.equip && p.equip[slot] === null) {
     p.equip[slot] = item;
     addLog(`搜刮獲得並裝備【${item.name}】！`, "text-amber-300 font-bold");
@@ -644,7 +651,6 @@ function inspectItemById(itemId) {
   showItemInfoModal(item, '物品詳細情報', false);
 }
 
-// 合成圖鑑
 let currentCraftTab = 'all';
 
 function openCraftBookModal() {
@@ -700,7 +706,6 @@ function renderCraftBookList() {
     const resItem = getSafeItem(r.result) || { id: r.result, name: r.result, atk: 0, def: 0 };
     const rarity = ItemRegistry.getRarity(resItem.id);
     
-    // 材料品級按鈕
     const matBadges = r.materials.map(mId => {
       const mName = getItemDisplayName(mId);
       const mRarity = ItemRegistry.getRarity(mId);
@@ -833,6 +838,7 @@ function applyItemDropToYellow(bagIdx) {
   updateUI();
 }
 
+// 💡 修正裝備部位判定：支援 head, chest, arm, leg, acc, weapon
 function applyItemDropToRed(bagIdx) {
   if (bagIdx === null || !state.player) return;
   const p = state.player;
@@ -840,6 +846,7 @@ function applyItemDropToRed(bagIdx) {
   const item = getSafeItem(itemId);
   if (!item) return;
 
+  // 1. 食物判定
   if (item.type === "food") {
     const healHp = item.hp || 0;
     const healSp = item.sp || 0;
@@ -848,7 +855,8 @@ function applyItemDropToRed(bagIdx) {
     p.bag.splice(bagIdx, 1);
     addLog(`吃掉了【${item.name}】！回復 ${healHp} HP / ${healSp} SP。`, "text-emerald-400 font-bold");
   } 
-  else if (p.equip && p.equip[item.type] !== undefined) {
+  // 2. 裝備判定 (包含安全帽 head, 衣服 chest 等)
+  else if (p.equip && ['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
     const slot = item.type;
     const oldItem = p.equip[slot];
     p.equip[slot] = item;
@@ -1058,6 +1066,7 @@ function modalActionUnequip() {
   updateUI();
 }
 
+// 💡 裝備欄 6 格：外框與裡面 SVG 圖標同時隨品級色變色！
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
@@ -1075,21 +1084,23 @@ function renderEquipSixGrid(p) {
     if (s.item) {
       const rarity = ItemRegistry.getRarity(s.item.id);
       return `
-        <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border-2 ${rarity.border} bg-slate-900/90 flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
-          ${s.svg}
+        <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border-2 ${rarity.border} bg-slate-900/95 flex items-center justify-center relative cursor-pointer active:scale-95 transition ${rarity.glow}" title="點擊檢視 ${s.item.name}">
+          <!-- 💡 內部 SVG 圖標同步品級色 -->
+          <div class="${rarity.iconColor}">
+            ${s.svg}
+          </div>
           <span class="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         </div>
       `;
     }
     return `
-      <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-60 cursor-pointer" title="${s.label} (空)">
+      <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-40 cursor-pointer text-slate-500" title="${s.label} (空)">
         ${s.svg}
       </div>
     `;
   }).join("");
 }
 
-// 💡 戰術地圖渲染（連動目標材料導航）
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
   if (!container || !state.player) return;
@@ -1115,7 +1126,6 @@ function renderTacticalMap() {
     const isClosed = state.closedZones.includes(z.id);
     const canMove = !isClosed && !isCurrent;
 
-    // 💡 判定此地是否包含缺少的材料
     const hasNeededMaterial = !isClosed && missingMats.some(mId => {
       const targetId = ItemRegistry.ALIAS[mId] || mId;
       return z.drops && (z.drops.includes(mId) || z.drops.includes(targetId));
@@ -1131,7 +1141,6 @@ function renderTacticalMap() {
       boxStyle = "bg-rose-950 border-rose-800 text-rose-500 line-through opacity-60";
       statusTag = "禁區封鎖";
     } else if (hasNeededMaterial) {
-      // 💡 導航高亮：金光閃閃
       boxStyle = "bg-amber-950/90 border-2 border-amber-400 text-amber-200 cursor-pointer shadow-lg shadow-amber-950/60 animate-pulse";
       statusTag = "⭐ 包含缺少的目標材料！";
     } else if (canMove) {
@@ -1188,7 +1197,6 @@ function updateUI() {
   renderEquipSixGrid(p);
   renderTargetTracker();
 
-  // 💡 移動按鈕上的小紅/黃光提示
   const mapPing = document.getElementById("map-btn-ping");
   if (mapPing) {
     const missing = getMissingTrackedMaterials();
@@ -1235,7 +1243,6 @@ function updateUI() {
     renderTacticalMap();
   }
 
-  // 背包 6 格 (套用五階品級色)
   const invGrid = document.getElementById("inventory-grid");
   if (invGrid) {
     invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
