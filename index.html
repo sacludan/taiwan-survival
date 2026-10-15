@@ -97,7 +97,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.45 • Production Ready
+        MVP v0.46 • Target & Clean UX
       </div>
     </div>
 
@@ -136,7 +136,10 @@
                 <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
                   <span>🎯 目標追蹤</span>
                 </span>
-                <span id="tracker-target-name" class="text-[11px] font-bold text-white truncate max-w-[85px]">目標物品</span>
+                <div class="flex items-center gap-1">
+                  <span id="tracker-target-name" class="text-[11px] font-bold text-white truncate max-w-[75px]">目標物品</span>
+                  <button onclick="clearTrackedItem(event)" class="text-slate-400 hover:text-rose-400 text-xs px-1 font-mono transition" title="取消追蹤">✕</button>
+                </div>
               </div>
               <div id="tracker-materials-list" class="space-y-0.5 text-[10px] font-mono text-slate-300"></div>
             </div>
@@ -370,19 +373,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (全面統一為 ?v=45 強制刷新手機快取) -->
-  <script src="items_weapon.js?v=45"></script>
-  <script src="items_armor.js?v=45"></script>
-  <script src="items_material.js?v=45"></script>
-  <script src="items_food.js?v=45"></script>
-  <script src="recipes.js?v=45"></script>
-  <script src="maps.js?v=45"></script>
-  <script src="characters.js?v=45"></script>
-  <script src="game_config.js?v=45"></script>
+  <!-- 🔗 模組引入清單 (全面統一為 ?v=46 強制刷新手機快取) -->
+  <script src="items_weapon.js?v=46"></script>
+  <script src="items_armor.js?v=46"></script>
+  <script src="items_material.js?v=46"></script>
+  <script src="items_food.js?v=46"></script>
+  <script src="recipes.js?v=46"></script>
+  <script src="maps.js?v=46"></script>
+  <script src="characters.js?v=46"></script>
+  <script src="game_config.js?v=46"></script>
   
-  <script src="lobby.js?v=45"></script>
-  <script src="ai.js?v=45"></script>
-  <script src="combat.js?v=45"></script>
-  <script src="main.js?v=45"></script>
+  <script src="lobby.js?v=46"></script>
+  <script src="ai.js?v=46"></script>
+  <script src="combat.js?v=46"></script>
+  <script src="main.js?v=46"></script>
 </body>
 </html>
