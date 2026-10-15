@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v35：支援 6 部位獨立裝備穿脫/屬性動態累加，並適配資料驅動角色
+ * v36：經典黑倖探索循環——搜刮有 40% 機率撞見同區域敵人觸發單次交鋒，否則拾取物資
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -27,7 +27,6 @@ const state = {
   ai: null
 };
 
-// 💡 遍歷 6 個部位動態累加總攻擊力與總防禦力
 function getTotalAtk(unit) {
   if (!unit) return 0;
   let total = unit.baseAtk || 0;
@@ -61,9 +60,7 @@ function initGame(isSandbox = false) {
   state.gameOver = false;
   state.isSearching = false;
 
-  // 從 GAME_CHARACTERS 初始化深拷貝
   state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
-  // 保留函式型別的技能 cast 方法
   state.player.skill.cast = GAME_CHARACTERS.roar_brother.skill.cast;
 
   state.ai = JSON.parse(JSON.stringify(GAME_CHARACTERS.buzz_uncle));
@@ -77,9 +74,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】6 部位獨立裝備槽 + 角色專屬技能驅動系統已啟動！", "text-emerald-400 font-bold");
+    addLog("【測試模式】黑倖式探索：搜刮可能翻出物資或遭遇對手！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！點擊區域搜刮！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -138,7 +135,8 @@ function startGameLoop() {
         }
       }
 
-      if (DEV_CONFIG.enableNPC && state.timeSec % 3 === 0) {
+      // NPC 在背景遊蕩
+      if (DEV_CONFIG.enableNPC && state.timeSec % 4 === 0) {
         runAIBrain();
       }
     }
@@ -183,7 +181,6 @@ function craftItem(unit, recipe, isPlayer = true) {
   const newItem = GAME_DATA.items[recipe.result];
   const slot = newItem.type;
 
-  // 如果合成出的是 6 部位裝備之一，自動評估替換
   if (unit.equip && unit.equip[slot] !== undefined) {
     const currentEquip = unit.equip[slot];
     if (!currentEquip || (newItem.score || 0) > (currentEquip.score || 0)) {
@@ -201,7 +198,7 @@ function craftItem(unit, recipe, isPlayer = true) {
   updateUI();
 }
 
-// 搜刮邏輯
+// 💡 3 秒搜刮邏輯
 function triggerSearch() {
   if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
@@ -244,20 +241,22 @@ function triggerSearch() {
   }, 100);
 }
 
+// 💡 經典黑倖搜刮結算：機率遭遇對手 vs 獲得物資
 function executeSearchFinish() {
   const p = state.player;
   const currentZoneObj = GAME_DATA.zones.find(z => z.id === p.zone);
 
+  // 如果 NPC 在同一個地圖，且存活，有 45% 的機率觸發遭遇戰！
   if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.45) {
     startCombat();
     return;
   }
 
+  // 否則為獲得物資
   const dropId = currentZoneObj.drops[Math.floor(Math.random() * currentZoneObj.drops.length)];
   const item = GAME_DATA.items[dropId];
   const slot = item.type;
 
-  // 如果搜到對應部位裝備且該欄為空，直接自動穿戴
   if (p.equip && p.equip[slot] === null) {
     p.equip[slot] = item;
     addLog(`搜刮獲得並裝備【${item.name}】！`, "text-amber-300 font-bold");
@@ -318,9 +317,7 @@ function moveZone(targetZoneId) {
 
   closeMapModal();
 
-  if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.6) {
-    startCombat();
-  }
+  // 移動到新地圖不會立刻開打，必須透過「搜刮」來尋找目標
   updateUI();
 }
 
@@ -369,7 +366,7 @@ function handleItemTouchMove(e) {
     touchState.ghostEl.style.top = `${touch.clientY - 45}px`;
 
     const hoveredEl = document.elementFromPoint(touch.clientX, touch.clientY);
-    const yellowZone = document.getElementById("drop-zone-yellow");
+    const yellowZone = document.getElementById("explore-panel");
     const redZone = document.getElementById("drop-zone-red");
 
     if (yellowZone && yellowZone.contains(hoveredEl)) yellowZone.classList.add("drag-over-yellow");
@@ -383,7 +380,7 @@ function handleItemTouchMove(e) {
 function handleItemTouchEnd(e) {
   if (!touchState.active) return;
 
-  const yellowZone = document.getElementById("drop-zone-yellow");
+  const yellowZone = document.getElementById("explore-panel");
   const redZone = document.getElementById("drop-zone-red");
   if (yellowZone) yellowZone.classList.remove("drag-over-yellow");
   if (redZone) redZone.classList.remove("drag-over-red");
@@ -422,7 +419,6 @@ function applyItemDropToYellow(bagIdx) {
   updateUI();
 }
 
-// 💡 6 部位獨立落點結算（武器、頭、胸、手、腿、飾品）
 function applyItemDropToRed(bagIdx) {
   if (bagIdx === null || !state.player) return;
   const p = state.player;
@@ -579,7 +575,6 @@ function modalActionUnequip() {
   updateUI();
 }
 
-// 💡 6 格裝備 UI 精準對應
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
@@ -693,21 +688,15 @@ function updateUI() {
     craftBox.classList.add("hidden"); 
   }
 
+  // 💡 遭遇狀態：切換顯示探索面板 vs 交鋒面板
+  const expPanel = document.getElementById("explore-panel");
+  const comPanel = document.getElementById("combat-panel");
+
   if (state.inCombat) {
-    const expPanel = document.getElementById("explore-panel");
-    const comPanel = document.getElementById("combat-panel");
     if (expPanel) expPanel.classList.add("hidden");
     if (comPanel) comPanel.classList.remove("hidden");
-
-    const enemyStats = document.getElementById("enemy-stats");
-    if (enemyStats) enemyStats.textContent = `攻擊 ${getTotalAtk(ai)} | 防禦 ${getTotalDef(ai)}`;
-    const enemyHpText = document.getElementById("enemy-hp-text");
-    if (enemyHpText) enemyHpText.textContent = `HP: ${ai.hp}/${ai.maxHp}`;
-    const enemyHpBar = document.getElementById("enemy-hp-bar");
-    if (enemyHpBar) enemyHpBar.style.width = `${(ai.hp / ai.maxHp) * 100}%`;
+    updateCombatUI();
   } else {
-    const expPanel = document.getElementById("explore-panel");
-    const comPanel = document.getElementById("combat-panel");
     if (expPanel) expPanel.classList.remove("hidden");
     if (comPanel) comPanel.classList.add("hidden");
 
