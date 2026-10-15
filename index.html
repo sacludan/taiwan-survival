@@ -109,6 +109,36 @@
       opacity: 1;
       transition: opacity 0.04s ease-out;
     }
+
+    /* 💡 身處即將縮圈預警區的黃光呼吸特效 */
+    @keyframes zone-warning-glow {
+      0%, 100% {
+        border-color: rgba(245, 158, 11, 0.95);
+        box-shadow: inset 0 0 28px rgba(245, 158, 11, 0.35), 0 0 16px rgba(245, 158, 11, 0.45);
+      }
+      50% {
+        border-color: rgba(251, 191, 36, 0.3);
+        box-shadow: inset 0 0 8px rgba(245, 158, 11, 0.1), 0 0 4px rgba(245, 158, 11, 0.1);
+      }
+    }
+    .zone-pending-warning {
+      animation: zone-warning-glow 1.1s infinite ease-in-out !important;
+    }
+
+    /* 💡 身處已封鎖禁區的危險紅光閃爍特效 */
+    @keyframes zone-closed-glow {
+      0%, 100% {
+        border-color: rgba(244, 63, 94, 1);
+        box-shadow: inset 0 0 38px rgba(225, 29, 72, 0.55), 0 0 20px rgba(225, 29, 72, 0.65);
+      }
+      50% {
+        border-color: rgba(244, 63, 94, 0.35);
+        box-shadow: inset 0 0 12px rgba(225, 29, 72, 0.2), 0 0 6px rgba(225, 29, 72, 0.2);
+      }
+    }
+    .zone-closed-danger {
+      animation: zone-closed-glow 0.75s infinite ease-in-out !important;
+    }
   </style>
 </head>
 <body class="text-slate-100 flex items-center justify-center p-0">
@@ -127,9 +157,9 @@
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-left text-xs text-slate-300 space-y-1.5 mb-2">
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
-          <p>1. 全島 22 區直式生存島地圖，點擊地標直接瞬移！</p>
-          <p>2. 追蹤目標材料後，島嶼地圖即時點亮 ⭐ 標示產地！</p>
-          <p>3. 縮圈前 15 秒掛出 ⚠️ 預警，注意禁區驅離傷害！</p>
+          <p>1. 頂部常駐縮圈倒數，身處預警區時外框會閃爍黃光警報！</p>
+          <p>2. 左下角【📖 圖鑑】收錄全品級物資（白/綠/藍/黃/紅）！</p>
+          <p>3. 追蹤目標材料後，島嶼地圖即時點亮 ⭐ 標示產地！</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -142,7 +172,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.53 • Lumia Style Island Map
+        MVP v0.54 • Timer & Full Compendium
       </div>
     </div>
 
@@ -160,21 +190,32 @@
              ondrop="handleDropToYellow(event)" 
              class="flex-1 flex flex-col justify-between bg-slate-800/40 hover:bg-slate-800/70 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3 relative transition cursor-pointer select-none">
           
-          <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5">
-            <div>
-              <div class="text-[9px] text-slate-400 font-mono">CURRENT LOCATION</div>
-              <h2 id="zone-title" class="text-lg font-black text-white tracking-wide">🏛️ 立法院</h2>
-              <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
+          <!-- 上方標題、縮圈倒數計時器與移動按鈕 -->
+          <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5 gap-1">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[9px] text-slate-400 font-mono">LOCATION</span>
+                <!-- 💡 常駐縮圈倒數計時器 -->
+                <span id="zone-timer-badge" class="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-slate-900/90 border border-slate-700 text-amber-400 shadow-xs">
+                  🔥 縮圈: 45s
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <h2 id="zone-title" class="text-lg font-black text-white tracking-wide truncate">🏛️ 立法院</h2>
+                <!-- 💡 身處即將縮圈/禁區時的即時狀態警示 -->
+                <span id="current-zone-alert-pill" class="hidden text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse"></span>
+              </div>
+              <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5 truncate">可搜刮物資：載入中</p>
             </div>
 
-            <button id="main-map-btn" onclick="event.stopPropagation(); openMapModal();" class="relative px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
+            <button id="main-map-btn" onclick="event.stopPropagation(); openMapModal();" class="flex-shrink-0 relative px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
               <span class="text-xs font-black text-amber-400">移動</span>
               <span class="text-[8px] text-slate-400">地圖</span>
               <span id="map-btn-ping" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></span>
             </button>
           </div>
 
-          <!-- 綠色框區域：目標材料追蹤面板 -->
+          <!-- 目標材料追蹤面板 -->
           <div class="relative py-1 flex items-start">
             <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-56 bg-slate-950/75 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer">
             </div>
@@ -276,8 +317,9 @@
         <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[52px]"></div>
 
         <div class="flex justify-between items-center px-1">
+          <!-- 💡 左下角改為【📖 圖鑑】 -->
           <button onclick="openCraftBookModal()" class="px-3.5 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/70 active:scale-95 rounded-lg text-xs font-black text-indigo-300 shadow transition flex items-center gap-1.5">
-            <span>📖 合成表</span>
+            <span>📖 圖鑑</span>
           </button>
 
           <button onclick="openExitConfirmModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700/80 rounded-lg text-xs font-bold text-slate-300 shadow transition flex items-center gap-1.5">
@@ -286,31 +328,34 @@
         </div>
       </footer>
 
-      <!-- 合成圖鑑總表彈窗 -->
+      <!-- 💡 全物資圖鑑彈窗（依五階品級分類） -->
       <div id="craft-book-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex flex-col justify-between p-4 pt-6 pb-5">
         <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
           <div>
             <h3 class="text-base font-black text-white flex items-center gap-1.5">
-              <span>📖 生存合成圖鑑</span>
+              <span>📖 台灣生存全物資圖鑑</span>
             </h3>
-            <p class="text-[10px] text-slate-400">品級：⚪白 🟢綠 🔵藍 🟡黃 🔴紅</p>
+            <p class="text-[10px] text-slate-400">收錄全島所有基礎材料、裝備、美食與神裝配方</p>
           </div>
           <button onclick="closeCraftBookModal()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
           </button>
         </div>
 
-        <div class="flex gap-2 py-2 border-b border-slate-800/80 text-xs font-bold">
-          <button id="craft-tab-all" onclick="filterCraftBook('all')" class="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white">全部</button>
-          <button id="craft-tab-weapon" onclick="filterCraftBook('weapon')" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400">武器</button>
-          <button id="craft-tab-armor" onclick="filterCraftBook('armor')" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400">防具</button>
-          <button id="craft-tab-food" onclick="filterCraftBook('food')" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400">食物</button>
+        <!-- 品級分類頁籤 -->
+        <div class="grid grid-cols-6 gap-1 py-2 border-b border-slate-800/80 text-[11px] font-bold">
+          <button id="craft-tab-all" onclick="filterCraftBook('all')" class="py-1.5 rounded-lg bg-indigo-600 text-white">全部</button>
+          <button id="craft-tab-1" onclick="filterCraftBook(1)" class="py-1.5 rounded-lg bg-slate-800 text-slate-300">⚪白</button>
+          <button id="craft-tab-2" onclick="filterCraftBook(2)" class="py-1.5 rounded-lg bg-slate-800 text-emerald-400">🟢綠</button>
+          <button id="craft-tab-3" onclick="filterCraftBook(3)" class="py-1.5 rounded-lg bg-slate-800 text-sky-400">🔵藍</button>
+          <button id="craft-tab-4" onclick="filterCraftBook(4)" class="py-1.5 rounded-lg bg-slate-800 text-amber-300">🟡黃</button>
+          <button id="craft-tab-5" onclick="filterCraftBook(5)" class="py-1.5 rounded-lg bg-slate-800 text-rose-400">🔴紅</button>
         </div>
 
         <div id="craft-recipes-list" class="flex-1 overflow-y-auto space-y-2 py-2 pr-1 custom-scrollbar"></div>
 
         <div class="text-[10px] text-slate-500 text-center pt-1 border-t border-slate-800">
-          搜集全島物資，打造終極神裝制霸台灣！
+          點擊任意物資可查看詳細幹話、產地與上下位合成樹！
         </div>
       </div>
 
@@ -414,19 +459,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (全面升級為 ?v=53) -->
-  <script src="items_weapon.js?v=53"></script>
-  <script src="items_armor.js?v=53"></script>
-  <script src="items_material.js?v=53"></script>
-  <script src="items_food.js?v=53"></script>
-  <script src="recipes.js?v=53"></script>
-  <script src="maps.js?v=53"></script>
-  <script src="characters.js?v=53"></script>
-  <script src="game_config.js?v=53"></script>
+  <!-- 🔗 模組引入清單 (全面升級為 ?v=54) -->
+  <script src="items_weapon.js?v=54"></script>
+  <script src="items_armor.js?v=54"></script>
+  <script src="items_material.js?v=54"></script>
+  <script src="items_food.js?v=54"></script>
+  <script src="recipes.js?v=54"></script>
+  <script src="maps.js?v=54"></script>
+  <script src="characters.js?v=54"></script>
+  <script src="game_config.js?v=54"></script>
   
-  <script src="lobby.js?v=53"></script>
-  <script src="ai.js?v=53"></script>
-  <script src="combat.js?v=53"></script>
-  <script src="main.js?v=53"></script>
+  <script src="lobby.js?v=54"></script>
+  <script src="ai.js?v=54"></script>
+  <script src="combat.js?v=54"></script>
+  <script src="main.js?v=54"></script>
 </body>
 </html>
