@@ -1,10 +1,10 @@
 /**
  * 【模組：核心管家 main.js】
- * v54：
- * 1. 頂部常駐縮圈倒數計時器（最後15秒變紅字閃爍）
- * 2. 立法院取消特殊待遇，22區完全平等隨機縮圈
- * 3. 身處即將縮圈預警區時，探索面板外圍觸發黃光呼吸閃爍警報
- * 4. 左下角升級為「全物資圖鑑」，收錄所有物品並依 5 大品級分類
+ * v55：
+ * 1. 完整實裝《黑色倖存者》原版縮圈體系（單輪固定 120 秒）
+ * 2. 前 5 輪大風吹輪替（舊暫時禁區全解鎖，換新一組禁區）
+ * 3. 第 6 輪（10分）分水嶺轉永久禁區，一路收束至最後 1 區死鬥
+ * 4. 倒數 30 秒緊急撤離黃光呼吸警報
  */
 
 const ItemRegistry = {
@@ -27,38 +27,12 @@ const ItemRegistry = {
   },
 
   RARITY_MAP: {
-    // ⚪ 白色 (1階：直接撿取的基礎材料 / 基礎裝備 / 基礎食物)
-    folding_chair: 1,
-    megaphone: 1,
-    box_cutter: 1,
-    umbrella: 1,
-    helmet: 1,
-    iron_nail: 1,
-    battery: 1,
-    tape: 1,
-    wafer: 1,
-    water_balloon: 1,
-    laser_pointer: 1,
-    sausage: 1,
-    rice_sausage: 1,
-    bento: 1,
-
-    // 🟢 綠色 (2階：一次合成裝備 / 較稀有的直接撿取物)
-    king_chair: 2,
-    thunder_horn: 2,
-    sanbao_helmet: 2,
-    iron_sheet: 2,
-    milk_tea: 2,
-    stinky_tofu: 2,
-
-    // 🔵 藍色 (3階：二次合成 / 頂級夜市美食)
-    tw_hotdog: 3,
-    riot_shield: 3,
-
-    // 🟡 黃色 (4階：三次合成)
+    folding_chair: 1, megaphone: 1, box_cutter: 1, umbrella: 1, helmet: 1,
+    iron_nail: 1, battery: 1, tape: 1, wafer: 1, water_balloon: 1, laser_pointer: 1,
+    sausage: 1, rice_sausage: 1, bento: 1,
+    king_chair: 2, thunder_horn: 2, sanbao_helmet: 2, iron_sheet: 2, milk_tea: 2, stinky_tofu: 2,
+    tw_hotdog: 3, riot_shield: 3,
     power_armor: 4,
-
-    // 🔴 紅色 (5階：四次合成終極神裝)
     god_slayer_chair: 5
   },
 
@@ -83,7 +57,6 @@ const ItemRegistry = {
       if (p && p[id]) return p[id];
     }
 
-    // 內建傳說展示品保底
     if (resolvedId === "god_slayer_chair") {
       return {
         id: "god_slayer_chair",
@@ -98,7 +71,6 @@ const ItemRegistry = {
     return { id: resolvedId, name: resolvedId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
   },
 
-  // 💡 取得全遊戲所有不重複的標準物品清單（供圖鑑使用）
   getAllUniqueItems() {
     const map = new Map();
     const pools = [
@@ -124,7 +96,6 @@ const ItemRegistry = {
       });
     });
 
-    // 確保 5 階紅裝代表作也在圖鑑內可預覽
     if (!map.has("god_slayer_chair")) {
       map.set("god_slayer_chair", this.get("god_slayer_chair"));
     }
@@ -153,9 +124,23 @@ const EQUIP_SLOT_SVGS = {
   acc:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
+// 💡 黑色倖存者原版縮圈配置表（每輪精確固定 120 秒 = 2 分鐘）
+const BS_ZONE_ROUNDS = [
+  { round: 1, duration: 120, warnCount: 4, isPermanent: false, name: "第 1 輪 (白天)" },
+  { round: 2, duration: 120, warnCount: 4, isPermanent: false, name: "第 2 輪 (白天)" },
+  { round: 3, duration: 120, warnCount: 8, isPermanent: false, name: "第 3 輪 (白天)" },
+  { round: 4, duration: 120, warnCount: 8, isPermanent: false, name: "第 4 輪 (入夜)" },
+  { round: 5, duration: 120, warnCount: 8, isPermanent: false, name: "第 5 輪 (入夜)" },
+  { round: 6, duration: 120, warnCount: 6, isPermanent: true,  name: "第 6 輪 (第 2 天・永久封閉)" },
+  { round: 7, duration: 120, warnCount: 4, isPermanent: true,  name: "第 7 輪 (第 2 天・準決賽)" },
+  { round: 8, duration: 120, warnCount: 2, isPermanent: true,  name: "第 8 輪 (決賽圈)" },
+  { round: 9, duration: 120, warnCount: 0, isPermanent: true,  name: "最終決賽 (終極死鬥)" }
+];
+
 const state = {
   timeSec: 0,
-  nextCloseSec: 45,
+  currentRoundIdx: 0,
+  roundTimeRemain: 120,
   pendingCloseZones: [],
   closedZones: [],
   inCombat: false,
@@ -275,18 +260,37 @@ function getTotalDef(unit) {
   return total;
 }
 
+// 💡 隨機挑選預告區域（保證最後至少有 1 區不被鎖定）
+function pickRandomWarningZones(count) {
+  const allZones = getSafeZones();
+  // 候選清單：目前尚未永久封閉的區域
+  const openZones = allZones.filter(z => !state.closedZones.includes(z.id));
+  
+  if (openZones.length <= 1) return [];
+  const actualCount = Math.min(count, openZones.length - 1);
+  const shuffled = [...openZones].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, actualCount).map(z => z.id);
+}
+
 function initGame(isSandbox = false) {
   DEV_CONFIG.enableZoneClose = !isSandbox;
   DEV_CONFIG.enableNPC = !isSandbox;
 
   state.timeSec = 0;
-  state.nextCloseSec = 45;
-  state.pendingCloseZones = [];
+  state.currentRoundIdx = 0;
+  state.roundTimeRemain = BS_ZONE_ROUNDS[0].duration;
   state.closedZones = [];
   state.inCombat = false;
   state.gameOver = false;
   state.isSearching = false;
   state.trackedItemId = null;
+
+  // 第 1 輪開局立即隨機預告 4 個區域
+  if (DEV_CONFIG.enableZoneClose) {
+    state.pendingCloseZones = pickRandomWarningZones(BS_ZONE_ROUNDS[0].warnCount);
+  } else {
+    state.pendingCloseZones = [];
+  }
 
   if (typeof GAME_CHARACTERS !== 'undefined' && GAME_CHARACTERS.roar_brother) {
     state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
@@ -306,9 +310,11 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】全品級物資圖鑑與22區地圖已載入！", "text-emerald-400 font-bold");
+    addLog("【測試模式】全島 22 區與圖鑑已就緒（無縮圈）！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！注意頂部縮圈倒數與黃光警報！", "text-amber-300 font-bold");
+    addLog("台灣生存戰開局！黑倖原版縮圈體系啟動（每輪 2 分鐘）！", "text-amber-300 font-bold");
+    const warnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
+    addLog(`⚠️ 【第 1 輪預告】${warnNames} 將在 2 分鐘後成為暫時禁區！`, "text-amber-400");
   }
 
   closeMapModal();
@@ -316,6 +322,63 @@ function initGame(isSandbox = false) {
   closeCraftBookModal();
   updateUI();
   startGameLoop();
+}
+
+// 💡 執行原版縮圈推進核心引擎
+function advanceZoneRound() {
+  const currentCfg = BS_ZONE_ROUNDS[state.currentRoundIdx];
+  const allZones = getSafeZones();
+
+  // 1. 處理禁區封鎖與解禁輪替
+  if (!currentCfg.isPermanent) {
+    // 【前中期：大風吹輪替】
+    const reopenedList = [...state.closedZones];
+    // 上一輪的暫時禁區全部解鎖，換上這輪預告的禁區
+    state.closedZones = [...state.pendingCloseZones];
+
+    if (reopenedList.length > 0) {
+      const reNames = reopenedList.map(id => getSafeCurrentZone(id).name).join("、");
+      addLog(`🔓 【區域輪替】${reNames} 已重新解禁開放！`, "text-emerald-400 font-bold");
+    }
+    const newClosedNames = state.closedZones.map(id => getSafeCurrentZone(id).name).join("、");
+    addLog(`🚫 【暫時禁區】${newClosedNames} 已實施管制！`, "text-rose-500 font-bold");
+
+  } else {
+    // 【第 6 輪開始：永久封閉】
+    state.pendingCloseZones.forEach(id => {
+      if (!state.closedZones.includes(id)) {
+        state.closedZones.push(id);
+      }
+    });
+
+    if (state.currentRoundIdx === 5) {
+      addLog(`☠️ 【進入第 2 天】管制升級！所有禁區即刻起「永久封閉」，不再解鎖！`, "text-rose-500 font-black");
+    } else {
+      const closedNames = state.closedZones.map(id => getSafeCurrentZone(id).name).join("、");
+      addLog(`🚫 【永久禁區追加】全島已累計封閉 ${state.closedZones.length} 個區域！`, "text-rose-500 font-bold");
+    }
+  }
+
+  // 2. 滯留禁區懲罰
+  if (state.closedZones.includes(state.player.zone)) {
+    state.player.hp = Math.max(1, state.player.hp - 35);
+    triggerPlayerBloodHitEffect();
+    addLog(`⚡ 你滯留在禁區內遭受高壓電網驅離，受到 35 點傷害！請盡速撤離！`, "text-rose-500 font-black");
+  }
+
+  // 3. 推進到下一輪並挑選下一輪預告
+  state.currentRoundIdx = Math.min(state.currentRoundIdx + 1, BS_ZONE_ROUNDS.length - 1);
+  const nextCfg = BS_ZONE_ROUNDS[state.currentRoundIdx];
+  state.roundTimeRemain = nextCfg.duration;
+
+  if (nextCfg.warnCount > 0) {
+    state.pendingCloseZones = pickRandomWarningZones(nextCfg.warnCount);
+    const nextWarnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
+    addLog(`⚠️ 【${nextCfg.name} 預警】${nextWarnNames} 列入下輪封鎖名單！`, "text-amber-400 font-bold");
+  } else {
+    state.pendingCloseZones = [];
+    addLog(`🔥 【最終死鬥】全島僅存最後安全區，決一死戰！`, "text-rose-400 font-black");
+  }
 }
 
 let gameInterval = null;
@@ -336,43 +399,19 @@ function startGameLoop() {
         }
       }
 
-      const allZones = getSafeZones();
+      // 💡 縮圈倒數計時運算
       if (DEV_CONFIG.enableZoneClose) {
-        const remainClose = state.nextCloseSec - state.timeSec;
+        state.roundTimeRemain--;
 
-        // 💡 22區完全平等（移除 z.id !== 'ly' 限制），倒數 15 秒隨機抽 2 個區域預警
-        if (remainClose <= 15 && remainClose > 0 && state.pendingCloseZones.length === 0) {
-          const openCandidates = allZones.filter(z => !state.closedZones.includes(z.id));
-          if (openCandidates.length > 1) {
-            // 隨機洗牌抽 1~2 個區域（但至少保留 1 個最後決戰區）
-            const countToPick = Math.min(2, openCandidates.length - 1);
-            const shuffled = [...openCandidates].sort(() => Math.random() - 0.5);
-            const picked = shuffled.slice(0, countToPick);
-            state.pendingCloseZones = picked.map(z => z.id);
-            const names = picked.map(z => z.name).join("、");
-            addLog(`⚠️ 【縮圈預警】${names} 將在 ${remainClose} 秒後封鎖！`, "text-amber-400 font-bold");
-          }
+        // 倒數 30 秒撤離警報
+        if (state.roundTimeRemain === 30) {
+          const warnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
+          addLog(`⏰ 【倒數 30 秒】禁區即將封鎖！請位於 ${warnNames} 的生還者立刻撤離！`, "text-amber-300 font-black");
         }
 
-        // 倒數歸零：正式封鎖
-        if (remainClose <= 0) {
-          if (state.pendingCloseZones.length > 0) {
-            state.pendingCloseZones.forEach(id => {
-              if (!state.closedZones.includes(id)) {
-                state.closedZones.push(id);
-                const zName = getSafeCurrentZone(id).name;
-                addLog(`🚫 【禁區封鎖】${zName} 已正式封鎖！`, "text-rose-500 font-bold");
-              }
-            });
-            state.pendingCloseZones = [];
-          }
-          state.nextCloseSec += 45;
-
-          if (state.closedZones.includes(state.player.zone)) {
-            state.player.hp = Math.max(1, state.player.hp - 25);
-            triggerPlayerBloodHitEffect();
-            addLog(`⚡ 你滯留在禁區內遭受電擊驅離，受到 25 點傷害！`, "text-rose-500 font-bold");
-          }
+        // 倒數歸零：推進輪次
+        if (state.roundTimeRemain <= 0) {
+          advanceZoneRound();
         }
       }
 
@@ -380,7 +419,6 @@ function startGameLoop() {
         if (typeof runAIBrain === 'function') runAIBrain();
       }
 
-      // 每秒刷新頂部倒數計時與介面狀態
       updateUI();
     }
   }, 100);
@@ -684,9 +722,6 @@ function inspectItemById(itemId) {
   showItemInfoModal(item, '物品詳細情報', false);
 }
 
-// ==========================================
-// 💡 【4. 全物資圖鑑系統（依五階品級分類）】
-// ==========================================
 let currentCraftTab = 'all';
 
 function openCraftBookModal() {
@@ -733,12 +768,10 @@ function renderCraftBookList() {
   let allItems = ItemRegistry.getAllUniqueItems();
   const recipes = getSafeRecipes();
 
-  // 依品級篩選
   if (currentCraftTab !== 'all') {
     allItems = allItems.filter(it => ItemRegistry.getRarity(it.id).level === Number(currentCraftTab));
   }
 
-  // 排序：依品級由低到高（或同品級內武器->防具->食物->材料）
   allItems.sort((a, b) => {
     const rA = ItemRegistry.getRarity(a.id).level;
     const rB = ItemRegistry.getRarity(b.id).level;
@@ -776,7 +809,6 @@ function renderCraftBookList() {
       statTag = `<span class="text-emerald-400 font-bold font-mono text-[11px]">${parts.join(" ")}</span>`;
     }
 
-    // 判斷顯示「合成配方」還是「地圖產地」
     let sourceInfoHTML = "";
     if (recipe) {
       const matBadges = recipe.materials.map(mId => {
@@ -1184,9 +1216,7 @@ function renderEquipSixGrid(p) {
   }).join("");
 }
 
-// ==========================================
-// 💡 【直式台北生存島戰術地圖（22區平等）】
-// ==========================================
+// 💡 直式台北島戰術地圖（動態反饋輪替與縮圈狀態）
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
   if (!container || !state.player) return;
@@ -1220,7 +1250,6 @@ function renderTacticalMap() {
     let badgeLeft = "";
     let pinTop = "";
 
-    // 💡 若玩家身處預警區，小地圖上同時顯示定位針 + 預警紅黃框，不再被藍框蓋掉！
     if (isCurrent && isPendingClose) {
       pillClass = "bg-amber-950 border-2 border-amber-400 text-amber-200 animate-pulse shadow-[0_0_14px_rgba(245,158,11,0.9)]";
       badgeLeft = `<span class="bg-amber-500 text-slate-950 text-[9px] font-black px-1 rounded-xs mr-0.5">⚠️</span>`;
@@ -1268,7 +1297,6 @@ function renderTacticalMap() {
     <div class="relative w-full h-full rounded-2xl overflow-hidden border border-slate-700/80 shadow-inner"
          style="background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);">
       
-      <!-- 🗺️ 底層：直式生存島嶼 SVG 地形與一般領地分割線（立法院無特殊紅框） -->
       <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 520" preserveAspectRatio="none">
         <defs>
           <linearGradient id="islandLand" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -1302,7 +1330,6 @@ function renderTacticalMap() {
         <path d="M 240,75 C 310,80 330,140 320,200 C 270,190 250,130 240,75 Z" fill="#065f46" opacity="0.35" />
         <path d="M 35,380 C 120,370 250,375 322,400 C 310,470 260,495 180,498 C 95,495 45,465 35,380 Z" fill="#064e3b" opacity="0.45" />
 
-        <!-- 均勻領地分割白線 -->
         <g stroke="#94a3b8" stroke-opacity="0.32" stroke-width="1.3" fill="none">
           <path d="M 30,68 L 130,75 L 235,68 L 328,75" />
           <path d="M 22,128 L 120,122 L 230,130 L 335,125" />
@@ -1317,7 +1344,6 @@ function renderTacticalMap() {
         </g>
       </svg>
 
-      <!-- 📍 上層：22 個地標節點 -->
       <div class="relative w-full h-full">
         ${nodesHTML}
       </div>
@@ -1346,25 +1372,29 @@ function updateUI() {
   const spText = document.getElementById("sp-text");
   if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
-  // 💡 1. 更新頂部縮圈倒數計時器
+  // 💡 頂部縮圈倒數與輪次狀態顯示
   const timerBadge = document.getElementById("zone-timer-badge");
   if (timerBadge) {
     if (!DEV_CONFIG.enableZoneClose) {
       timerBadge.textContent = "🛠️ 測試模式 (無縮圈)";
       timerBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-600/60 text-emerald-300";
     } else {
-      const remain = Math.max(0, state.nextCloseSec - state.timeSec);
-      if (remain <= 15) {
-        timerBadge.textContent = `⚠️ 縮圈警報: ${remain}s`;
+      const curCfg = BS_ZONE_ROUNDS[state.currentRoundIdx];
+      const remain = Math.max(0, state.roundTimeRemain);
+      const minStr = Math.floor(remain / 60).toString();
+      const secStr = (remain % 60).toString().padStart(2, '0');
+
+      if (remain <= 30) {
+        timerBadge.textContent = `⚠️ R${curCfg.round} 警報: ${minStr}:${secStr}`;
         timerBadge.className = "text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-rose-600 border border-rose-300 text-white animate-pulse shadow";
       } else {
-        timerBadge.textContent = `🔥 下次縮圈: ${remain}s`;
+        timerBadge.textContent = `🔥 R${curCfg.round} 縮圈: ${minStr}:${secStr}`;
         timerBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-900/90 border border-slate-700 text-amber-400";
       }
     }
   }
 
-  // 💡 3. 檢查玩家當前所在區域是否為「即將縮圈預警區」或「已封鎖禁區」
+  // 💡 身處預警區或禁區時的即時視覺警報
   const expPanel = document.getElementById("explore-panel");
   const alertPill = document.getElementById("current-zone-alert-pill");
   const isPlayerInPending = state.pendingCloseZones.includes(p.zone);
@@ -1381,10 +1411,10 @@ function updateUI() {
 
   if (alertPill) {
     if (isPlayerInClosed) {
-      alertPill.textContent = "🚫 禁區危險！請立即撤離";
+      alertPill.textContent = "🚫 禁區高壓電！立即撤離";
       alertPill.className = "text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-600 text-white animate-bounce";
     } else if (isPlayerInPending) {
-      alertPill.textContent = "⚠️ 本區即將封鎖！";
+      alertPill.textContent = "⚠️ 本區即將封閉！";
       alertPill.className = "text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 animate-pulse";
     } else {
       alertPill.className = "hidden";
