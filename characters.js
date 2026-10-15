@@ -1,6 +1,6 @@
 /**
  * 【模組：角色與技能資料庫 characters.js】
- * 採用 6 部位獨立裝備槽 + 資料驅動技能體系
+ * 修復初始物品 ID 匹配問題
  */
 const GAME_CHARACTERS = {
   roar_brother: {
@@ -14,8 +14,7 @@ const GAME_CHARACTERS = {
     maxSp: 100,
     sp: 100,
     zone: "ly",
-    bag: ["milk_tea"],
-    // 💡 6 部位獨立裝備槽位
+    bag: ["boba_milk_tea"], // 修正為正確的中文道具 ID: 全糖大冰奶
     equip: {
       weapon: null,
       head: null,
@@ -24,13 +23,12 @@ const GAME_CHARACTERS = {
       leg: null,
       acc: null
     },
-    // 💡 角色專屬技能配置
     skill: {
       name: "太離譜了！",
       icon: "📢",
       cd: 10,
       costSp: 15,
-      desc: "發動震懾全場的咆哮，造成高額爆擊傷害並使其動搖！",
+      desc: "發動震懾全場的咆哮，造成高額爆擊傷害！",
       cast: (caster, target) => {
         const dmg = 35 + Math.floor(Math.random() * 15);
         target.hp = Math.max(0, target.hp - dmg);
@@ -54,7 +52,7 @@ const GAME_CHARACTERS = {
     sp: 100,
     alive: true,
     zone: "ly",
-    bag: ["lunch_box"],
+    bag: ["sausage"], // 烤香腸
     equip: {
       weapon: null,
       head: null,
