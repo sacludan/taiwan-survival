@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v39：整合合成圖鑑渲染、道具中文兜底解析、移除背包標題列優化排版
+ * v40：在探索區左上角（綠框）實裝透明背景目標材料追蹤器，並整合產地提示與背包實時比對
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -24,10 +24,10 @@ const state = {
   gameOver: false,
   isSearching: false,
   player: null,
-  ai: null
+  ai: null,
+  trackedRecipeResult: null // 💡 當前追蹤的目標配方產物 ID
 };
 
-// 安全獲取物品中文名稱，避免出現英文 ID
 function getItemDisplayName(itemId) {
   if (!itemId) return "空";
   const item = GAME_DATA.items[itemId];
@@ -35,6 +35,13 @@ function getItemDisplayName(itemId) {
   if (itemId === "boba_milk_tea" || itemId === "milk_tea") return "全糖大冰奶";
   if (itemId === "sausage") return "烤香腸";
   return itemId;
+}
+
+// 根據素材 ID 查詢掉落地點名稱
+function getItemDropLocationName(itemId) {
+  if (!GAME_DATA || !GAME_DATA.zones) return "";
+  const found = GAME_DATA.zones.find(z => z.drops && z.drops.includes(itemId));
+  return found ? found.name : "合成獲得";
 }
 
 function getTotalAtk(unit) {
@@ -70,6 +77,9 @@ function initGame(isSandbox = false) {
   state.gameOver = false;
   state.isSearching = false;
 
+  // 💡 預設追蹤新手實用武器：reinforced_chair (若配方存在)
+  state.trackedRecipeResult = GAME_DATA.recipes && GAME_DATA.recipes.length > 0 ? GAME_DATA.recipes[0].result : null;
+
   state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
   state.player.skill.cast = GAME_CHARACTERS.roar_brother.skill.cast;
 
@@ -84,9 +94,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】黑倖式探索：同區域 60% 找人、40% 材料！", "text-emerald-400 font-bold");
+    addLog("【測試模式】綠框材料追蹤已啟動，點擊可快速換目標！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！左下角可隨時查閱合成表！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！左上角綠框為目標材料追蹤列！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -328,7 +338,71 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
-// 💡 【合成圖鑑系統 (Craft Book)】
+// 💡 【綠框：材料追蹤框核心邏輯 (Target Tracker)】
+// ==========================================
+function setTrackedRecipe(recipeResultId) {
+  state.trackedRecipeResult = recipeResultId;
+  const resItem = GAME_DATA.items[recipeResultId];
+  addLog(`已鎖定目標：【${resItem ? resItem.name : recipeResultId}】進行材料追蹤！`, "text-amber-300 font-bold");
+  closeCraftBookModal();
+  updateUI();
+}
+
+function renderTargetTracker() {
+  const trackerBox = document.getElementById("target-tracker-box");
+  const nameEl = document.getElementById("tracker-target-name");
+  const listEl = document.getElementById("tracker-materials-list");
+  if (!trackerBox || !nameEl || !listEl) return;
+
+  if (!state.trackedRecipeResult) {
+    trackerBox.classList.add("hidden");
+    return;
+  }
+
+  trackerBox.classList.remove("hidden");
+  const recipe = GAME_DATA.recipes.find(r => r.result === state.trackedRecipeResult);
+  const targetItem = GAME_DATA.items[state.trackedRecipeResult];
+
+  if (!recipe || !targetItem) {
+    trackerBox.classList.add("hidden");
+    return;
+  }
+
+  nameEl.textContent = targetItem.name;
+
+  // 取得玩家目前擁有的全部物品 ID
+  const ownedIds = [...(state.player.bag || [])];
+  if (state.player.equip) {
+    Object.values(state.player.equip).forEach(it => {
+      if (it) ownedIds.push(it.id);
+    });
+  }
+
+  listEl.innerHTML = recipe.materials.map(mId => {
+    const isOwned = ownedIds.includes(mId);
+    const mName = getItemDisplayName(mId);
+    const loc = getItemDropLocationName(mId);
+
+    if (isOwned) {
+      return `
+        <div class="flex justify-between items-center text-emerald-400">
+          <span class="truncate max-w-[130px] font-bold">✔ ${mName}</span>
+          <span class="text-[9px] text-emerald-500 font-mono">已擁有</span>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="flex justify-between items-center text-rose-300">
+          <span class="truncate max-w-[110px]">✖ ${mName}</span>
+          <span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[65px]">${loc}</span>
+        </div>
+      `;
+    }
+  }).join("");
+}
+
+// ==========================================
+// 【合成圖鑑系統 (Craft Book)】
 // ==========================================
 let currentCraftTab = 'all';
 
@@ -387,20 +461,23 @@ function renderCraftBookList() {
     else if (resItem.def) statTag = `<span class="text-sky-400 font-bold font-mono">+${resItem.def} 防</span>`;
     else if (resItem.hp) statTag = `<span class="text-emerald-400 font-bold font-mono">+${resItem.hp} HP</span>`;
 
+    const isTrackingThis = state.trackedRecipeResult === r.result;
+
     return `
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center shadow-sm">
+      <div class="bg-slate-900 border ${isTrackingThis ? 'border-amber-500 shadow-md shadow-amber-950/40' : 'border-slate-800'} rounded-xl p-3 flex justify-between items-center transition">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-sm font-black text-white">${resItem.name}</span>
             ${statTag}
+            ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold">追蹤中</span>' : ''}
           </div>
           <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
             <span class="text-slate-500 font-mono">配方:</span>
             <span class="text-indigo-300 font-semibold">${matNames}</span>
           </div>
         </div>
-        <button onclick="alert('已鎖定【${resItem.name}】為合成導航目標！')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold text-amber-400 transition">
-          🎯 追蹤
+        <button onclick="setTrackedRecipe('${r.result}')" class="px-2.5 py-1.5 ${isTrackingThis ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition">
+          ${isTrackingThis ? '已追蹤' : '🎯 追蹤'}
         </button>
       </div>
     `;
@@ -761,6 +838,9 @@ function updateUI() {
 
   renderEquipSixGrid(p);
 
+  // 💡 即時渲染綠框處的目標材料追蹤框
+  renderTargetTracker();
+
   const craftBox = document.getElementById("craft-alert-box");
   const availableRecipes = findAvailableRecipes(p);
   if (availableRecipes.length > 0 && craftBox) {
@@ -798,7 +878,6 @@ function updateUI() {
     renderTacticalMap();
   }
 
-  // 背包 6 格精確中文渲染
   const invGrid = document.getElementById("inventory-grid");
   if (invGrid) {
     invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
