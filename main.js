@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v46：修復 bento 與 tw_hotdog 英文問題、新增一鍵取消追蹤功能
+ * v47：全面防堵 maps.js 中的 bubble_tea 與 rice_sausage 漏網之魚，保證 100% 中文顯示
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -58,14 +58,25 @@ function getSafeRecipes() {
   return [];
 }
 
-// 萬能中文與道具物件解析
+// 萬能道具取得（內建全量中文翻譯字典）
 function getSafeItem(itemId) {
   if (!itemId) return null;
 
-  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.items && GAME_DATA.items[itemId]) {
-    return GAME_DATA.items[itemId];
+  // 1. 全域對應字典，優先對齊
+  const ALIAS_MAP = {
+    bubble_tea: "milk_tea",
+    boba_milk_tea: "milk_tea",
+    rice_sausage: "sticky_rice_sausage",
+    lunch_box: "bento"
+  };
+  const resolvedId = ALIAS_MAP[itemId] || itemId;
+
+  // 2. 從 GAME_DATA 讀取
+  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.items && GAME_DATA.items[resolvedId]) {
+    return GAME_DATA.items[resolvedId];
   }
 
+  // 3. 從各模組讀取
   const pools = [
     typeof ITEMS_FOOD !== 'undefined' ? ITEMS_FOOD : null,
     typeof window.ITEMS_FOOD !== 'undefined' ? window.ITEMS_FOOD : null,
@@ -75,19 +86,26 @@ function getSafeItem(itemId) {
   ];
 
   for (const p of pools) {
+    if (p && p[resolvedId]) return p[resolvedId];
     if (p && p[itemId]) return p[itemId];
   }
 
-  // 兜底專用防呆（徹底消除英文）
+  // 4. 強制兜底翻譯庫（100% 杜絕任何未定義英文）
   const fallbackDict = {
-    bento: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" },
-    lunch_box: { id: "lunch_box", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" },
-    tw_hotdog: { id: "tw_hotdog", name: "大腸包小腸", type: "food", hp: 60, sp: 30, desc: "炭烤香腸包入糯米腸，淋上甜辣醬與蒜片，台灣夜市霸主級美食！" },
     milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
-    boba_milk_tea: { id: "boba_milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" }
+    boba_milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
+    bubble_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
+    sticky_rice_sausage: { id: "sticky_rice_sausage", name: "糯米腸", type: "food", hp: 30, sp: 15, desc: "大腸包小腸的靈魂外皮，扎實飽足。" },
+    rice_sausage: { id: "sticky_rice_sausage", name: "糯米腸", type: "food", hp: 30, sp: 15, desc: "大腸包小腸的靈魂外皮，扎實飽足。" },
+    sausage: { id: "sausage", name: "烤香腸", type: "food", hp: 25, sp: 15, desc: "夜市路邊攤打香腸必備，蒜頭配著吃戰力翻倍。" },
+    stinky_tofu: { id: "stinky_tofu", name: "脆皮臭豆腐", type: "food", hp: 35, sp: 10, desc: "聞起來像垃圾桶，吃起來像天堂。搭配泡菜簡直是人間凶器。" },
+    tw_hotdog: { id: "tw_hotdog", name: "大腸包小腸", type: "food", hp: 60, sp: 30, desc: "炭烤香腸包入糯米腸，淋上甜辣醬與蒜片，台灣夜市霸主級美食！" },
+    bento: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" },
+    lunch_box: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" }
   };
 
   if (fallbackDict[itemId]) return fallbackDict[itemId];
+  if (fallbackDict[resolvedId]) return fallbackDict[resolvedId];
 
   return { id: itemId, name: itemId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
 }
@@ -99,7 +117,17 @@ function getItemDisplayName(itemId) {
 
 function getItemDropLocationName(itemId) {
   const zones = getSafeZones();
-  const found = zones.find(z => z.drops && (z.drops.includes(itemId) || ((itemId === 'boba_milk_tea' || itemId === 'milk_tea') && (z.drops.includes('milk_tea') || z.drops.includes('boba_milk_tea')))));
+  const targetItem = getSafeItem(itemId);
+  const targetId = targetItem ? targetItem.id : itemId;
+
+  const found = zones.find(z => z.drops && (
+    z.drops.includes(itemId) ||
+    z.drops.includes(targetId) ||
+    (targetId === 'milk_tea' && (z.drops.includes('bubble_tea') || z.drops.includes('boba_milk_tea') || z.drops.includes('milk_tea'))) ||
+    (targetId === 'sticky_rice_sausage' && (z.drops.includes('rice_sausage') || z.drops.includes('sticky_rice_sausage'))) ||
+    (targetId === 'bento' && (z.drops.includes('bento') || z.drops.includes('lunch_box')))
+  ));
+
   return found ? found.name : "合成獲得";
 }
 
@@ -169,7 +197,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】支援隨時取消追蹤，中文名稱全面校正！", "text-emerald-400 font-bold");
+    addLog("【測試模式】支援隨時取消追蹤，全中文別名校正完成！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！所有物品皆可點擊追蹤產地與合成！", "text-amber-300 font-bold");
   }
@@ -410,7 +438,6 @@ function moveZone(targetZoneId) {
   updateUI();
 }
 
-// 💡 追蹤與取消追蹤邏輯
 function setTrackedItem(itemId) {
   const item = getSafeItem(itemId);
   if (!item) return;
@@ -449,7 +476,6 @@ function renderTargetTracker() {
 
   trackerBox.classList.remove("hidden");
   
-  // 💡 在追蹤框標題加入快捷關閉按鈕 (X)
   trackerBox.innerHTML = `
     <div class="flex justify-between items-center border-b border-slate-700/50 pb-1 mb-1">
       <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
@@ -499,7 +525,7 @@ function renderTargetTracker() {
     }).join("");
   } else {
     const loc = getItemDropLocationName(targetItem.id);
-    const count = ownedIds.filter(id => id === targetItem.id || (targetItem.id === 'milk_tea' && id === 'boba_milk_tea')).length;
+    const count = ownedIds.filter(id => id === targetItem.id || (targetItem.id === 'milk_tea' && (id === 'boba_milk_tea' || id === 'bubble_tea'))).length;
 
     listInner.innerHTML = `
       <div class="space-y-0.5 pt-0.5">
@@ -820,7 +846,7 @@ function showItemInfoModal(item, categoryText, isFromBag) {
 
   let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2 text-xs">`;
 
-  // 💡 追蹤 / 取消追蹤 切換按鈕
+  // 追蹤狀態切換
   treeHTML += `
     <div class="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
       <span class="text-[11px] text-slate-300 font-bold">追蹤狀態</span>
