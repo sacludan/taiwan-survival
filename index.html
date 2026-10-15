@@ -84,7 +84,7 @@
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
           <p>1. 搜刮同區域有 60% 機率遭遇敵人或 40% 獲得物資。</p>
           <p>2. 點擊底部左側「📖 合成表」可隨時查閱並追蹤目標裝備。</p>
-          <p>3. 點擊任何道具可深入檢視上下位合成樹。</p>
+          <p>3. 點擊任何道具皆可查看上下位合成樹與產地追蹤。</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -97,7 +97,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.41 • Recipe Tree & Tracking
+        MVP v0.42 • All Items Trackable
       </div>
     </div>
 
@@ -255,7 +255,7 @@
             <h3 class="text-base font-black text-white flex items-center gap-1.5">
               <span>📖 生存合成圖鑑</span>
             </h3>
-            <p class="text-[10px] text-slate-400">點擊「🎯 追蹤」將裝備鎖定至主畫面追蹤框</p>
+            <p class="text-[10px] text-slate-400">點擊「🎯 追蹤」將物品鎖定至主畫面追蹤框</p>
           </div>
           <button onclick="closeCraftBookModal()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
@@ -312,7 +312,6 @@
             <div id="info-item-desc" class="text-xs text-slate-300 leading-relaxed italic">描述資訊</div>
           </div>
 
-          <!-- 💡 動態插入上下位合成樹 + 操作按鈕 -->
           <div id="info-buttons-container" class="space-y-2"></div>
 
           <button onclick="closeItemInfoModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
@@ -371,19 +370,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=41) -->
-  <script src="items_weapon.js?v=41"></script>
-  <script src="items_armor.js?v=41"></script>
-  <script src="items_material.js?v=41"></script>
-  <script src="items_food.js?v=41"></script>
-  <script src="recipes.js?v=41"></script>
-  <script src="maps.js?v=41"></script>
-  <script src="characters.js?v=41"></script>
-  <script src="game_config.js?v=41"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=42 強制破除快取) -->
+  <script src="items_weapon.js?v=42"></script>
+  <script src="items_armor.js?v=42"></script>
+  <script src="items_material.js?v=42"></script>
+  <script src="items_food.js?v=42"></script>
+  <script src="recipes.js?v=42"></script>
+  <script src="maps.js?v=42"></script>
+  <script src="characters.js?v=42"></script>
+  <script src="game_config.js?v=42"></script>
   
-  <script src="lobby.js?v=41"></script>
-  <script src="ai.js?v=41"></script>
-  <script src="combat.js?v=41"></script>
-  <script src="main.js?v=41"></script>
+  <script src="lobby.js?v=42"></script>
+  <script src="ai.js?v=42"></script>
+  <script src="combat.js?v=42"></script>
+  <script src="main.js?v=42"></script>
 </body>
 </html>
