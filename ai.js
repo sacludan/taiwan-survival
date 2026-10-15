@@ -1,6 +1,6 @@
 /**
  * 【模組：電腦對手 AI 決策系統 ai.js】
- * v48：AI 突襲玩家時觸發 FPS 爆血暗角特效與掉血跳字
+ * v52：適配 22 區大地圖尋路與遊蕩
  */
 
 function runAIBrain() {
@@ -8,10 +8,11 @@ function runAIBrain() {
 
   const ai = state.ai;
   const p = state.player;
+  const allZones = getSafeZones();
 
-  // 1. 如果 AI 身處禁區，強制撤離到安全區域
+  // 1. 如果身處禁區，強制撤出
   if (state.closedZones.includes(ai.zone)) {
-    const openZones = GAME_DATA.zones.filter(z => !state.closedZones.includes(z.id));
+    const openZones = allZones.filter(z => !state.closedZones.includes(z.id));
     if (openZones.length > 0) {
       const target = openZones[Math.floor(Math.random() * openZones.length)];
       ai.zone = target.id;
@@ -19,18 +20,15 @@ function runAIBrain() {
     }
   }
 
-  // 2. 如果 AI 與玩家在同一個區域：60% 機率搜到玩家並突襲偷扁一拳！
+  // 2. 同區域遭遇突襲
   if (ai.zone === p.zone) {
-    const findChance = Math.random();
-
-    if (findChance < 0.60) {
+    if (Math.random() < 0.60) {
       const aiAtk = getTotalAtk(ai);
       const pDef = getTotalDef(p);
       const dmg = Math.max(4, aiAtk - pDef + Math.floor(Math.random() * 5));
 
       p.hp = Math.max(0, p.hp - dmg);
 
-      // 💡 觸發 FPS 爆血暗角特效與玩家震動跳字
       triggerPlayerBloodHitEffect();
       triggerCombatShake("drop-zone-red");
       const playerHpContainer = document.getElementById("player-hp-container");
@@ -51,29 +49,29 @@ function runAIBrain() {
     }
   }
 
-  // 3. 40% 機率：AI 搜刮物資提升自己
+  // 3. 搜刮成長
   const currentZoneObj = getSafeCurrentZone(ai.zone);
-  if (!currentZoneObj || !currentZoneObj.drops || currentZoneObj.drops.length === 0) return;
+  if (currentZoneObj && currentZoneObj.drops && currentZoneObj.drops.length > 0) {
+    const dropId = currentZoneObj.drops[Math.floor(Math.random() * currentZoneObj.drops.length)];
+    const item = getSafeItem(dropId);
 
-  const dropId = currentZoneObj.drops[Math.floor(Math.random() * currentZoneObj.drops.length)];
-  const item = getSafeItem(dropId);
-
-  if (item) {
-    const slot = item.type;
-    if (ai.equip && ai.equip[slot] !== undefined) {
-      const currentEquip = ai.equip[slot];
-      if (!currentEquip || (item.score || 0) > (currentEquip.score || 0)) {
-        ai.equip[slot] = item;
+    if (item) {
+      const slot = item.type;
+      if (ai.equip && ai.equip[slot] !== undefined) {
+        const currentEquip = ai.equip[slot];
+        if (!currentEquip || (item.score || 0) > (currentEquip.score || 0)) {
+          ai.equip[slot] = item;
+        }
+      } 
+      else if (item.type === "food" && ai.hp < ai.maxHp * 0.7) {
+        ai.hp = Math.min(ai.maxHp, ai.hp + (item.hp || 0));
       }
-    } 
-    else if (item.type === "food" && ai.hp < ai.maxHp * 0.7) {
-      ai.hp = Math.min(ai.maxHp, ai.hp + (item.hp || 0));
     }
   }
 
-  // 4. 20% 機率 AI 換地圖遊蕩
-  if (Math.random() < 0.2) {
-    const openZones = getSafeZones().filter(z => !state.closedZones.includes(z.id) && z.id !== ai.zone);
+  // 4. 25% 機率換地圖遊蕩
+  if (Math.random() < 0.25) {
+    const openZones = allZones.filter(z => !state.closedZones.includes(z.id) && z.id !== ai.zone);
     if (openZones.length > 0) {
       const target = openZones[Math.floor(Math.random() * openZones.length)];
       ai.zone = target.id;
