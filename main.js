@@ -1,11 +1,10 @@
 /**
  * 【模組：核心管家 main.js】
- * v57：
- * 1. 移除裝備欄位右下角黃色小點點，介面極簡乾淨
- * 2. 縮圈單輪時長為 90 秒（1 分半），9 輪總長 13.5 分鐘
- * 3. 倒數 20 秒觸發緊急撤離警報與黃光呼吸特效
- * 4. 前 5 輪禁區輪替大風吹，第 6 輪永久封閉收束至決賽
- * 5. 全物資圖鑑（五階品級分類）支援
+ * v58：
+ * 1. 已清空舊道具與配方，保留完整裝備欄與圖鑑框架
+ * 2. 支援首頁玩家選角 + 正常模式 8 位不重複 AI
+ * 3. 支援角色測試模式（唯一地圖：立法院 + 自選電腦對手）
+ * 4. 完整實裝 9 位角色主被動讀秒、超哥同地區破防 -20%、王世間 12 秒結束算 CD、韓國魚雷達警告
  */
 
 const ItemRegistry = {
@@ -17,25 +16,8 @@ const ItemRegistry = {
     5: { name: "紅色傳說", shortName: "傳說", border: "border-rose-500", text: "text-rose-400", iconColor: "text-rose-400", badge: "bg-rose-950 border border-rose-500 text-rose-300", glow: "shadow-sm shadow-rose-900/50" }
   },
 
-  ALIAS: {
-    plastic_chair: "folding_chair",
-    melon_helmet: "helmet",
-    tri_treasure_helmet: "sanbao_helmet",
-    bubble_tea: "milk_tea",
-    boba_milk_tea: "milk_tea",
-    sticky_rice_sausage: "rice_sausage",
-    lunch_box: "bento"
-  },
-
-  RARITY_MAP: {
-    folding_chair: 1, megaphone: 1, box_cutter: 1, umbrella: 1, helmet: 1,
-    iron_nail: 1, battery: 1, tape: 1, wafer: 1, water_balloon: 1, laser_pointer: 1,
-    sausage: 1, rice_sausage: 1, bento: 1,
-    king_chair: 2, thunder_horn: 2, sanbao_helmet: 2, iron_sheet: 2, milk_tea: 2, stinky_tofu: 2,
-    tw_hotdog: 3, riot_shield: 3,
-    power_armor: 4,
-    god_slayer_chair: 5
-  },
+  ALIAS: {},
+  RARITY_MAP: {},
 
   get(id) {
     if (!id) return null;
@@ -58,18 +40,7 @@ const ItemRegistry = {
       if (p && p[id]) return p[id];
     }
 
-    if (resolvedId === "god_slayer_chair") {
-      return {
-        id: "god_slayer_chair",
-        name: "🔥弒神教椅",
-        type: "weapon",
-        atk: 55,
-        score: 100,
-        desc: "折凳流的最終神話形態。傳說只要在決賽圈舉起它，全場所有人都要起立致敬。"
-      };
-    }
-
-    return { id: resolvedId, name: resolvedId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
+    return null;
   },
 
   getAllUniqueItems() {
@@ -97,10 +68,6 @@ const ItemRegistry = {
       });
     });
 
-    if (!map.has("god_slayer_chair")) {
-      map.set("god_slayer_chair", this.get("god_slayer_chair"));
-    }
-
     return Array.from(map.values());
   },
 
@@ -113,19 +80,19 @@ const ItemRegistry = {
 
 const DEV_CONFIG = {
   enableZoneClose: true,
-  enableNPC: true
+  enableNPC: true,
+  isTestMode: false
 };
 
 const EQUIP_SLOT_SVGS = {
   weapon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>`,
   head:   `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18v-4a8 8 0 1 1 16 0v4"/><path d="M2 18h20"/></svg>`,
-  chest:  `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
+  chest:  `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9,2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>`,
   arm:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
   leg:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3v11l-3 4v3h14v-3l-3-4V3H7z"/></svg>`,
   acc:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
-// 💡 單輪 90 秒（1 分半），9 輪總時長 13 分 30 秒
 const BS_ZONE_ROUNDS = [
   { round: 1, duration: 90, warnCount: 4, isPermanent: false, name: "第 1 輪 (白天)" },
   { round: 2, duration: 90, warnCount: 4, isPermanent: false, name: "第 2 輪 (白天)" },
@@ -144,13 +111,54 @@ const state = {
   roundTimeRemain: 90,
   pendingCloseZones: [],
   closedZones: [],
+  activeZones: [],
   inCombat: false,
   gameOver: false,
   isSearching: false,
   player: null,
-  ai: null,
+  ai: null,      // 當前交鋒的目標 AI
+  ais: [],       // 場上所有電腦 AI 陣列
   trackedItemId: null
 };
+
+function createRuntimeUnit(template, startZoneId) {
+  const unit = JSON.parse(JSON.stringify(template));
+  unit.zone = startZoneId || "ly";
+  unit.alive = true;
+  unit.skillCdRemain = 0;
+  unit.stunRemain = 0;
+  unit.pigReviveUsed = false;
+  unit.hitTakenCount = 0;
+  unit.meritCount = 0;
+  unit.weakRemain = 0;
+  unit.guanDefBuffRemain = 0;
+  unit.guanPassiveCd = 0;
+  unit.reflectRemain = 0;
+  unit.stealthRemain = 0;
+  unit.milkDefBuffRemain = 0;
+  unit.dodgeReady = (unit.id === "jiangwanan");
+  unit.dodgeCdRemain = 0;
+  return unit;
+}
+
+// 韓國魚被動【禿子跟著月亮走】：當韓國魚先在該地圖，後續有人進入時跳出警告
+function checkHanguoyuRadar(enteringUnit, targetZoneId) {
+  const p = state.player;
+  if (!p || !p.alive || p.id !== "hanguoyu") return;
+  if (enteringUnit === p) return;
+
+  if (p.zone === targetZoneId) {
+    const zName = getSafeCurrentZone(targetZoneId).name;
+    addLog(`🚨 <span class="text-rose-400 font-black">【禿子跟著月亮走】</span> 警告！【${enteringUnit.name}】踏入了你所在的【${zName}】！`, "text-rose-400 font-bold");
+
+    const banner = document.getElementById("radar-warning-banner");
+    if (banner) {
+      banner.textContent = `🚨 禿子雷達警報：【${enteringUnit.name}】進入了${zName}！`;
+      banner.classList.remove("hidden");
+      setTimeout(() => banner.classList.add("hidden"), 3500);
+    }
+  }
+}
 
 function triggerPlayerBloodHitEffect() {
   const overlay = document.getElementById("fps-blood-hit-overlay");
@@ -171,27 +179,24 @@ function spawnFloatingDamage(containerEl, text, isCrit = false) {
 }
 
 function getSafeZones() {
+  if (Array.isArray(state.activeZones) && state.activeZones.length > 0) {
+    return state.activeZones;
+  }
   if (typeof MAPS_DATA !== 'undefined' && Array.isArray(MAPS_DATA.zones)) {
     return MAPS_DATA.zones;
   }
-  if (typeof window.GAME_MAPS !== 'undefined' && Array.isArray(window.GAME_MAPS)) {
-    return window.GAME_MAPS;
-  }
-  return [];
+  return [{ id: "ly", name: "立法院", icon: "🏛️", x: 50, y: 52, drops: [] }];
 }
 
 function getSafeCurrentZone(zoneId) {
   const zones = getSafeZones();
   const found = zones.find(z => z.id === zoneId);
-  return found || zones[0] || { id: "ly", name: "立法院", drops: [] };
+  return found || zones[0] || { id: "ly", name: "立法院", icon: "🏛️", drops: [] };
 }
 
 function getSafeRecipes() {
   if (typeof RECIPES_DATA !== 'undefined' && Array.isArray(RECIPES_DATA.recipes)) {
     return RECIPES_DATA.recipes;
-  }
-  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.recipes) {
-    return GAME_DATA.recipes;
   }
   return [];
 }
@@ -216,7 +221,7 @@ function getItemDropLocationName(itemId) {
   if (matchingZones.length > 0) {
     return matchingZones.slice(0, 3).map(z => z.name).join(" / ");
   }
-  return "合成獲得";
+  return "待配置";
 }
 
 function getMissingTrackedMaterials() {
@@ -239,6 +244,15 @@ function getMissingTrackedMaterials() {
   }
 }
 
+// 檢查同地區是否有其他存活的【超哥】觸發「超派～」減防 20%
+function isChaoGeAuraAffecting(unit) {
+  if (!unit || !state.player) return false;
+  const allUnits = [state.player, ...(state.ais || [])];
+  return allUnits.some(other =>
+    other && other.alive && other !== unit && other.id === "chaoge" && other.zone === unit.zone
+  );
+}
+
 function getTotalAtk(unit) {
   if (!unit) return 0;
   let total = unit.baseAtk || 0;
@@ -247,7 +261,15 @@ function getTotalAtk(unit) {
       if (item && item.atk) total += item.atk;
     });
   }
-  return total;
+  // 賴祥德【做功德】：每點功德 +1 攻擊，上限 10
+  if (unit.id === "laixiangde" && unit.meritCount > 0) {
+    total += Math.min(10, unit.meritCount);
+  }
+  // 陳阿館【三槍】副作用：10 秒內攻擊力減半
+  if (unit.weakRemain > 0) {
+    total = Math.floor(total * 0.5);
+  }
+  return Math.max(1, total);
 }
 
 function getTotalDef(unit) {
@@ -258,7 +280,15 @@ function getTotalDef(unit) {
       if (item && item.def) total += item.def;
     });
   }
-  return total;
+  // 陳阿館【幫我開直播】+6 防禦
+  if (unit.guanDefBuffRemain > 0) total += 6;
+  // 蔣晚安【生生喝鮮乳】+5 防禦
+  if (unit.milkDefBuffRemain > 0) total += 5;
+  // 超哥【超派～】同地區其他角色防禦降低 20%
+  if (isChaoGeAuraAffecting(unit)) {
+    total = Math.floor(total * 0.8);
+  }
+  return Math.max(0, total);
 }
 
 function pickRandomWarningZones(count) {
@@ -271,9 +301,9 @@ function pickRandomWarningZones(count) {
   return shuffled.slice(0, actualCount).map(z => z.id);
 }
 
-function initGame(isSandbox = false) {
+function initGame(isSandbox = false, selectedPlayerId = "zhugouliang", customTestBotIds = []) {
+  DEV_CONFIG.isTestMode = isSandbox;
   DEV_CONFIG.enableZoneClose = !isSandbox;
-  DEV_CONFIG.enableNPC = !isSandbox;
 
   state.timeSec = 0;
   state.currentRoundIdx = 0;
@@ -284,35 +314,57 @@ function initGame(isSandbox = false) {
   state.isSearching = false;
   state.trackedItemId = null;
 
+  const fullMaps = (typeof MAPS_DATA !== 'undefined' && Array.isArray(MAPS_DATA.zones)) ? MAPS_DATA.zones : [];
+  if (isSandbox) {
+    // 測試模式：唯一地圖僅限【立法院】
+    const lyZone = fullMaps.find(z => z.id === "ly") || { id: "ly", name: "立法院", icon: "🏛️", x: 50, y: 52, drops: [] };
+    state.activeZones = [lyZone];
+  } else {
+    state.activeZones = [...fullMaps];
+  }
+
   if (DEV_CONFIG.enableZoneClose) {
     state.pendingCloseZones = pickRandomWarningZones(BS_ZONE_ROUNDS[0].warnCount);
   } else {
     state.pendingCloseZones = [];
   }
 
-  if (typeof GAME_CHARACTERS !== 'undefined' && GAME_CHARACTERS.roar_brother) {
-    state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
-    state.player.skill.cast = GAME_CHARACTERS.roar_brother.skill.cast;
+  // 1. 建立玩家角色
+  const pTemplate = GAME_CHARACTERS[selectedPlayerId] || Object.values(GAME_CHARACTERS)[0];
+  state.player = createRuntimeUnit(pTemplate, "ly");
+
+  // 2. 建立電腦 AI 陣列（正常模式：剩下的 8 個角色不重複；測試模式：依玩家勾選放入立法院）
+  state.ais = [];
+  if (isSandbox) {
+    customTestBotIds.forEach(botId => {
+      if (botId !== state.player.id && GAME_CHARACTERS[botId]) {
+        state.ais.push(createRuntimeUnit(GAME_CHARACTERS[botId], "ly"));
+      }
+    });
+    DEV_CONFIG.enableNPC = state.ais.length > 0;
+  } else {
+    const remainingIds = Object.keys(GAME_CHARACTERS).filter(id => id !== state.player.id);
+    remainingIds.forEach((botId, idx) => {
+      const spawnZone = state.activeZones[idx % state.activeZones.length]?.id || "ly";
+      state.ais.push(createRuntimeUnit(GAME_CHARACTERS[botId], spawnZone));
+    });
+    DEV_CONFIG.enableNPC = true;
   }
 
-  if (typeof GAME_CHARACTERS !== 'undefined' && GAME_CHARACTERS.buzz_uncle) {
-    state.ai = JSON.parse(JSON.stringify(GAME_CHARACTERS.buzz_uncle));
-    state.ai.skill.cast = GAME_CHARACTERS.buzz_uncle.skill.cast;
-  }
-
-  if (!DEV_CONFIG.enableNPC && state.ai) {
-    state.ai.alive = false;
-  }
+  state.ai = state.ais[0] || null;
 
   const logEl = document.getElementById("game-log");
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】全島 22 區與圖鑑已就緒（無縮圈）！", "text-emerald-400 font-bold");
+    const botNames = state.ais.map(a => a.name).join("、") || "無電腦 (0人)";
+    addLog(`🏛️ 【立法院測試模式】你選擇了【${state.player.name}】！場上電腦：${botNames}`, "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰開局！黑倖原版縮圈體系啟動（每輪 1 分半）！", "text-amber-300 font-bold");
+    addLog(`🔥 台灣生存戰開局！你選擇了【${state.player.name}】，其餘 8 位角色已散佈全島！`, "text-amber-300 font-bold");
     const warnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
-    addLog(`⚠️ 【第 1 輪預告】${warnNames} 將在 1 分 30 秒後成為暫時禁區！`, "text-amber-400");
+    if (warnNames) {
+      addLog(`⚠️ 【第 1 輪預告】${warnNames} 將在 1 分 30 秒後成為暫時禁區！`, "text-amber-400");
+    }
   }
 
   closeMapModal();
@@ -370,6 +422,41 @@ function advanceZoneRound() {
   }
 }
 
+function tickUnitTimers1s(unit) {
+  if (!unit || !unit.alive) return;
+
+  if (unit.stunRemain > 0) unit.stunRemain--;
+  if (unit.weakRemain > 0) unit.weakRemain--;
+  if (unit.guanDefBuffRemain > 0) unit.guanDefBuffRemain--;
+  if (unit.guanPassiveCd > 0) unit.guanPassiveCd--;
+  if (unit.reflectRemain > 0) unit.reflectRemain--;
+  if (unit.milkDefBuffRemain > 0) unit.milkDefBuffRemain--;
+
+  // 王世間【Over my dead body】：12 秒結束後才開始算冷卻
+  if (unit.stealthRemain > 0) {
+    unit.stealthRemain--;
+    if (unit.stealthRemain === 0) {
+      unit.skillCdRemain = unit.skill.cd;
+      if (unit === state.player) {
+        addLog(`👻 【Over my dead body】12 秒隱蔽結束！正式開始計算 ${unit.skill.cd} 秒冷卻。`, "text-sky-400");
+      }
+    }
+  } else if (unit.skillCdRemain > 0) {
+    unit.skillCdRemain--;
+  }
+
+  // 蔣晚安【問A答B】閃避冷卻
+  if (unit.id === "jiangwanan" && !unit.dodgeReady && unit.dodgeCdRemain > 0) {
+    unit.dodgeCdRemain--;
+    if (unit.dodgeCdRemain === 0) {
+      unit.dodgeReady = true;
+      if (unit === state.player) {
+        addLog(`💨 被動【問A答B】充能完畢！下次受到攻擊將自動閃躲。`, "text-sky-400");
+      }
+    }
+  }
+}
+
 let gameInterval = null;
 function startGameLoop() {
   if (gameInterval) clearInterval(gameInterval);
@@ -382,6 +469,11 @@ function startGameLoop() {
     if (tickCount % 10 === 0) {
       state.timeSec++;
 
+      // 每秒更新玩家與所有 AI 的技能/Buff 讀秒
+      tickUnitTimers1s(state.player);
+      state.ais.forEach(ai => tickUnitTimers1s(ai));
+
+      // 每 3 秒自動回復 5 點體力
       if (state.timeSec % 3 === 0) {
         if (state.player.sp < state.player.maxSp) {
           state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
@@ -433,6 +525,7 @@ function findAvailableRecipes(unit) {
 }
 
 function craftItem(unit, recipe, isPlayer = true) {
+  if (!recipe) return;
   recipe.materials.forEach(matId => {
     const targetMat = ItemRegistry.ALIAS[matId] || matId;
     const bagIdx = unit.bag.findIndex(bId => (ItemRegistry.ALIAS[bId] || bId) === targetMat);
@@ -448,6 +541,7 @@ function craftItem(unit, recipe, isPlayer = true) {
   });
 
   const newItem = getSafeItem(recipe.result);
+  if (!newItem) return;
   const slot = newItem.type;
 
   if (unit.equip && unit.equip[slot] !== undefined) {
@@ -471,6 +565,11 @@ function triggerSearch() {
   if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
 
+  if (p.stunRemain > 0) {
+    addLog(`⛔ 你正被【歌廳秀】定身中（剩餘 ${p.stunRemain} 秒），無法搜刮！`, "text-rose-400 font-bold");
+    return;
+  }
+
   if (p.sp < 15) {
     addLog("體力不足（小於 15），無法搜刮！", "text-rose-400");
     return;
@@ -480,12 +579,15 @@ function triggerSearch() {
   state.isSearching = true;
   updateUI();
 
+  // 王世間【從從容容】：主動技期間搜刮速度變 1.5 倍（3000ms -> 2000ms）
+  const totalSearchMs = (p.id === "wangshijian" && p.stealthRemain > 0) ? 2000 : 3000;
+
   const promptText = document.getElementById("search-prompt-text");
   const progressBox = document.getElementById("search-progress-box");
   const progressBar = document.getElementById("search-progress-bar");
 
   if (promptText) {
-    promptText.textContent = "🔍 搜刮中...";
+    promptText.textContent = (totalSearchMs === 2000) ? "⚡ 從從容容 1.5x 極速搜刮中..." : "🔍 搜刮中...";
     promptText.classList.remove("hidden");
   }
   if (progressBox) progressBox.classList.remove("hidden");
@@ -494,10 +596,10 @@ function triggerSearch() {
   let elapsed = 0;
   const searchInterval = setInterval(() => {
     elapsed += 100;
-    const percent = (elapsed / 3000) * 100;
+    const percent = Math.min(100, (elapsed / totalSearchMs) * 100);
     if (progressBar) progressBar.style.width = `${percent}%`;
 
-    if (elapsed >= 3000) {
+    if (elapsed >= totalSearchMs) {
       clearInterval(searchInterval);
       state.isSearching = false;
 
@@ -509,34 +611,54 @@ function triggerSearch() {
   }, 100);
 }
 
-function executeSearchFinish() {
+// 供韓國魚【發大財！】與一般搜刮共用的摸物資函式
+function lootMultipleItemsForPlayer(count = 1) {
   const p = state.player;
   const currentZoneObj = getSafeCurrentZone(p.zone);
+  const dropPool = (currentZoneObj.drops && currentZoneObj.drops.length > 0) ? currentZoneObj.drops : [];
 
-  if (DEV_CONFIG.enableNPC && state.ai && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.60) {
-    if (typeof startCombat === 'function') {
-      startCombat();
-      return;
+  if (dropPool.length === 0) {
+    addLog(`🔍 搜刮完成（目前全島道具、材料與食物已清空，待後續重新設計）。`, "text-slate-400");
+    return;
+  }
+
+  for (let i = 0; i < count; i++) {
+    const dropId = dropPool[Math.floor(Math.random() * dropPool.length)];
+    const item = getSafeItem(dropId);
+    if (!item) continue;
+
+    const slot = item.type;
+    if (p.equip && p.equip[slot] === null) {
+      p.equip[slot] = item;
+      addLog(`搜刮獲得並裝備【${item.name}】！`, "text-amber-300 font-bold");
+    } else if (p.bag.length < 6) {
+      p.bag.push(item.id);
+      addLog(`搜刮獲得【${item.name}】！`, "text-emerald-300");
+    } else {
+      addLog(`背包已滿（6/6），錯過了【${item.name}】！`, "text-rose-400");
+    }
+  }
+}
+
+function executeSearchFinish() {
+  const p = state.player;
+
+  // 若玩家非處於王世間【Over my dead body】期間，可搜到同區域未隱蔽的存活 AI
+  if ((p.stealthRemain || 0) <= 0 && DEV_CONFIG.enableNPC) {
+    const sameZoneAIs = state.ais.filter(a =>
+      a && a.alive && a.zone === p.zone && (a.stealthRemain || 0) <= 0
+    );
+
+    if (sameZoneAIs.length > 0 && Math.random() < 0.70) {
+      const targetAI = sameZoneAIs[Math.floor(Math.random() * sameZoneAIs.length)];
+      if (typeof startCombat === 'function') {
+        startCombat(targetAI);
+        return;
+      }
     }
   }
 
-  const dropPool = (currentZoneObj.drops && currentZoneObj.drops.length > 0) 
-    ? currentZoneObj.drops 
-    : ["folding_chair", "water_balloon"];
-
-  const dropId = dropPool[Math.floor(Math.random() * dropPool.length)];
-  const item = getSafeItem(dropId);
-  const slot = item.type;
-
-  if (p.equip && p.equip[slot] === null) {
-    p.equip[slot] = item;
-    addLog(`搜刮獲得並裝備【${item.name}】！`, "text-amber-300 font-bold");
-  } else if (p.bag.length < 6) {
-    p.bag.push(item.id);
-    addLog(`搜刮獲得【${item.name}】！`, "text-emerald-300");
-  } else {
-    addLog(`背包已滿（6/6），錯過了【${item.name}】！`, "text-rose-400");
-  }
+  lootMultipleItemsForPlayer(1);
   updateUI();
 }
 
@@ -558,6 +680,12 @@ function moveZone(targetZoneId) {
   if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
 
+  if (p.stunRemain > 0) {
+    addLog(`⛔ 你正處於定身狀態，無法移動！`, "text-rose-400 font-bold");
+    closeMapModal();
+    return;
+  }
+
   if (p.zone === targetZoneId) {
     closeMapModal();
     return;
@@ -578,6 +706,10 @@ function moveZone(targetZoneId) {
   p.zone = targetZoneId;
   const targetZone = getSafeCurrentZone(targetZoneId);
   addLog(`移動到了【${targetZone.name}】。`, "text-indigo-300");
+
+  if (isChaoGeAuraAffecting(p)) {
+    addLog(`⚠️ 【超哥】正在此地區！受被動「超派～」影響，你的防禦力降低 20%！`, "text-rose-400 font-bold");
+  }
 
   closeMapModal();
   updateUI();
@@ -632,60 +764,6 @@ function renderTargetTracker() {
     </div>
     <div id="tracker-materials-list-inner" class="space-y-0.5 text-[10px] font-mono text-slate-300"></div>
   `;
-
-  const listInner = document.getElementById("tracker-materials-list-inner");
-
-  const ownedIds = [...(state.player.bag || [])].map(id => ItemRegistry.ALIAS[id] || id);
-  if (state.player.equip) {
-    Object.values(state.player.equip).forEach(it => {
-      if (it) ownedIds.push(ItemRegistry.ALIAS[it.id] || it.id);
-    });
-  }
-
-  const recipes = getSafeRecipes();
-  const recipe = recipes.find(r => (ItemRegistry.ALIAS[r.result] || r.result) === targetItem.id);
-
-  if (recipe) {
-    listInner.innerHTML = recipe.materials.map(mId => {
-      const resolvedMat = ItemRegistry.ALIAS[mId] || mId;
-      const isOwned = ownedIds.includes(resolvedMat);
-      const mName = getItemDisplayName(resolvedMat);
-      const loc = getItemDropLocationName(resolvedMat);
-      const mRarity = ItemRegistry.getRarity(resolvedMat);
-
-      if (isOwned) {
-        return `
-          <div class="flex justify-between items-center text-emerald-400">
-            <span class="truncate max-w-[110px] font-bold">✔ ${mName}</span>
-            <span class="text-[9px] text-emerald-500 font-mono">已擁有</span>
-          </div>
-        `;
-      } else {
-        return `
-          <div class="flex justify-between items-center text-rose-300">
-            <span class="truncate max-w-[95px] ${mRarity.text}">✖ ${mName}</span>
-            <span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[85px] font-bold">⭐${loc}</span>
-          </div>
-        `;
-      }
-    }).join("");
-  } else {
-    const loc = getItemDropLocationName(targetItem.id);
-    const count = ownedIds.filter(id => id === targetItem.id).length;
-
-    listInner.innerHTML = `
-      <div class="space-y-0.5 pt-0.5">
-        <div class="flex justify-between text-slate-300">
-          <span>產地:</span>
-          <span class="text-amber-400 font-bold truncate max-w-[120px]">⭐${loc}</span>
-        </div>
-        <div class="flex justify-between text-slate-300">
-          <span>擁有:</span>
-          <span class="${count > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400'}">${count > 0 ? `✔ ${count} 個` : '✖ 0 個'}</span>
-        </div>
-      </div>
-    `;
-  }
 }
 
 function getItemRecipeTree(itemId) {
@@ -752,93 +830,15 @@ function renderCraftBookList() {
   if (!listEl) return;
 
   let allItems = ItemRegistry.getAllUniqueItems();
-  const recipes = getSafeRecipes();
 
   if (currentCraftTab !== 'all') {
     allItems = allItems.filter(it => ItemRegistry.getRarity(it.id).level === Number(currentCraftTab));
   }
 
-  allItems.sort((a, b) => {
-    const rA = ItemRegistry.getRarity(a.id).level;
-    const rB = ItemRegistry.getRarity(b.id).level;
-    return rA - rB;
-  });
-
   if (allItems.length === 0) {
-    listEl.innerHTML = `<div class="text-center text-slate-500 py-8 text-xs">此品級暫無登錄物資</div>`;
+    listEl.innerHTML = `<div class="text-center text-slate-500 py-8 text-xs">目前舊道具、材料與食物已全部清空，等待重新設計</div>`;
     return;
   }
-
-  const typeLabelMap = {
-    weapon: "⚔️ 武器",
-    head: "🪖 頭部",
-    chest: "👕 衣服",
-    arm: "🛡️ 手臂",
-    leg: "👟 腿部",
-    acc: "💍 飾品",
-    food: "🍖 食物",
-    material: "🔩 材料"
-  };
-
-  listEl.innerHTML = allItems.map(item => {
-    const rarity = ItemRegistry.getRarity(item.id);
-    const recipe = recipes.find(r => (ItemRegistry.ALIAS[r.result] || r.result) === item.id);
-    const typeLabel = typeLabelMap[item.type] || "📦 物資";
-
-    let statTag = "";
-    if (item.atk) statTag = `<span class="text-amber-400 font-bold font-mono text-xs">+${item.atk} 攻</span>`;
-    else if (item.def) statTag = `<span class="text-sky-400 font-bold font-mono text-xs">+${item.def} 防</span>`;
-    else if (item.hp || item.sp) {
-      const parts = [];
-      if (item.hp) parts.push(`+${item.hp}HP`);
-      if (item.sp) parts.push(`+${item.sp}SP`);
-      statTag = `<span class="text-emerald-400 font-bold font-mono text-[11px]">${parts.join(" ")}</span>`;
-    }
-
-    let sourceInfoHTML = "";
-    if (recipe) {
-      const matBadges = recipe.materials.map(mId => {
-        const mName = getItemDisplayName(mId);
-        const mRarity = ItemRegistry.getRarity(mId);
-        return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
-      }).join(`<span class="text-slate-500 font-bold">+</span>`);
-
-      sourceInfoHTML = `
-        <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 flex-wrap">
-          <span class="text-slate-500 font-mono text-[10px]">配方:</span>
-          ${matBadges}
-        </div>
-      `;
-    } else {
-      const dropLoc = getItemDropLocationName(item.id);
-      sourceInfoHTML = `
-        <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-          <span class="text-slate-500 font-mono">產地:</span>
-          <span class="text-amber-300/90 font-bold">📍 ${dropLoc}</span>
-        </div>
-      `;
-    }
-
-    const isTrackingThis = state.trackedItemId === item.id;
-
-    return `
-      <div onclick="inspectItemById('${item.id}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border-2 ${isTrackingThis ? 'border-amber-400 shadow-md shadow-amber-950/40' : rarity.border} rounded-xl p-2.5 flex justify-between items-center transition ${rarity.glow}">
-        <div class="min-w-0 flex-1 pr-2">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-sm font-black ${rarity.text}">${item.name}</span>
-            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${rarity.badge}">${rarity.shortName}</span>
-            <span class="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded">${typeLabel}</span>
-            ${statTag}
-            ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold animate-pulse">追蹤中</span>' : ''}
-          </div>
-          ${sourceInfoHTML}
-        </div>
-        <button onclick="event.stopPropagation(); ${isTrackingThis ? "clearTrackedItem()" : `setTrackedItem('${item.id}')`}" class="px-2.5 py-1.5 ${isTrackingThis ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
-          ${isTrackingThis ? '✕ 取消' : '🎯 追蹤'}
-        </button>
-      </div>
-    `;
-  }).join("");
 }
 
 // 觸控拖曳系統
@@ -868,8 +868,9 @@ function handleItemTouchMove(e) {
   const deltaY = Math.abs(touch.clientY - touchState.startY);
 
   if (!touchState.isDragging && (deltaX > 6 || deltaY > 6)) {
-    touchState.isDragging = true;
     const item = getSafeItem(state.player.bag[touchState.bagIndex]);
+    if (!item) return;
+    touchState.isDragging = true;
     const rarity = ItemRegistry.getRarity(item.id);
 
     const ghost = document.createElement("div");
@@ -946,8 +947,12 @@ function applyItemDropToRed(bagIdx) {
   if (!item) return;
 
   if (item.type === "food") {
-    const healHp = item.hp || 0;
+    let healHp = item.hp || 0;
     const healSp = item.sp || 0;
+    // 亞洲桶神被動【鼎王吃到飽】：食物補血效果 +20%
+    if (p.id === "yazhoutongshen") {
+      healHp = Math.round(healHp * 1.2);
+    }
     p.hp = Math.min(p.maxHp, p.hp + healHp);
     p.sp = Math.min(p.maxSp, p.sp + healSp);
     p.bag.splice(bagIdx, 1);
@@ -1012,116 +1017,8 @@ function inspectEquipSlot(slotKey) {
 
 function showItemInfoModal(item, categoryText, isFromBag) {
   const modal = document.getElementById("item-info-modal");
-  const catEl = document.getElementById("info-item-category");
-  const nameEl = document.getElementById("info-item-name");
-  const statEl = document.getElementById("info-item-stat");
-  const descEl = document.getElementById("info-item-desc");
-  const btnContainer = document.getElementById("info-buttons-container");
-
-  const rarity = ItemRegistry.getRarity(item.id);
-
-  if (catEl) catEl.textContent = `${categoryText} • [${rarity.name}]`;
-  if (nameEl) {
-    nameEl.textContent = item.name;
-    nameEl.className = `text-base font-black ${rarity.text} mt-0.5`;
-  }
-
-  let statStr = "";
-  if (item.type === "food") {
-    statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
-  } else if (item.atk) {
-    statStr = `攻擊力 +${item.atk}`;
-  } else if (item.def) {
-    statStr = `防禦力 +${item.def}`;
-  } else {
-    statStr = `基礎材料 (產地: ${getItemDropLocationName(item.id)})`;
-  }
-  if (statEl) statEl.textContent = statStr;
-
-  if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資。";
-
-  const { downstream, upstream } = getItemRecipeTree(item.id);
-  const isTrackingCurrent = state.trackedItemId === item.id;
-
-  let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2 text-xs">`;
-
-  treeHTML += `
-    <div class="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
-      <span class="text-[11px] text-slate-300 font-bold">追蹤狀態</span>
-      <button onclick="${isTrackingCurrent ? "clearTrackedItem()" : `setTrackedItem('${item.id}')`}" class="px-3 py-1 ${isTrackingCurrent ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-indigo-950 border border-indigo-500 text-indigo-300 hover:bg-indigo-900'} active:scale-95 rounded-lg text-xs font-bold transition">
-        ${isTrackingCurrent ? '✕ 取消追蹤' : '🎯 設為追蹤目標'}
-      </button>
-    </div>
-  `;
-
-  if (downstream) {
-    const matBadges = downstream.materials.map(mId => {
-      const mName = getItemDisplayName(mId);
-      const mRarity = ItemRegistry.getRarity(mId);
-      return `<button onclick="inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
-    }).join(`<span class="text-slate-500 font-bold">+</span>`);
-
-    treeHTML += `
-      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
-        <div class="text-[10px] font-bold text-slate-400 mb-1">🔻【合成來源 (下位素材)】</div>
-        <div class="flex items-center gap-1.5 flex-wrap">
-          ${matBadges}
-        </div>
-      </div>
-    `;
-  } else {
-    treeHTML += `
-      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex justify-between items-center">
-        <span class="text-[10px] font-bold text-slate-400">📍【物資搜刮產地】</span>
-        <span class="text-[11px] font-bold text-amber-400">${getItemDropLocationName(item.id)}</span>
-      </div>
-    `;
-  }
-
-  if (upstream.length > 0) {
-    const upstreamBadges = upstream.map(u => {
-      const upName = u.resultItem ? u.resultItem.name : u.resultId;
-      const isUpTracking = state.trackedItemId === u.resultId;
-      const upRarity = ItemRegistry.getRarity(u.resultId);
-      return `
-        <div class="flex justify-between items-center py-1 border-b border-slate-800/60 last:border-0">
-          <button onclick="inspectItemById('${u.resultId}')" class="${upRarity.text} hover:opacity-80 font-bold underline text-[11px] text-left truncate max-w-[170px]">
-            🔺 ${upName}
-          </button>
-          <button onclick="${isUpTracking ? "clearTrackedItem()" : `setTrackedItem('${u.resultId}')`}" class="px-2 py-0.5 ${isUpTracking ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 text-[10px] rounded border border-slate-700 font-bold transition">
-            ${isUpTracking ? '✕ 取消' : '🎯 追蹤'}
-          </button>
-        </div>
-      `;
-    }).join("");
-
-    treeHTML += `
-      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 max-h-24 overflow-y-auto custom-scrollbar">
-        <div class="text-[10px] font-bold text-indigo-400 mb-1">🔺【可合成的高階物品 (上位衍生)】</div>
-        ${upstreamBadges}
-      </div>
-    `;
-  }
-
-  treeHTML += `</div>`;
-
-  let buttonsHTML = "";
-  if (isFromBag) {
-    if (['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
-      buttonsHTML = `<button onclick="modalActionEquip()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow transition">裝備 (自動替換)</button>`;
-    } else if (item.type === "food") {
-      buttonsHTML = `<button onclick="modalActionUse()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow transition">使用 (食用)</button>`;
-    }
-    buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
-  } else if (activeInspectTarget.type === 'equip') {
-    buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (收回背包)</button>`;
-  }
-
-  if (btnContainer) {
-    btnContainer.innerHTML = treeHTML + `<div class="space-y-1.5 pt-1">${buttonsHTML}</div>`;
-  }
-
-  if (modal) modal.classList.remove("hidden");
+  if (!modal || !item) return;
+  modal.classList.remove("hidden");
 }
 
 function closeItemInfoModal() {
@@ -1130,46 +1027,6 @@ function closeItemInfoModal() {
   activeInspectTarget = { type: null, indexOrKey: null };
 }
 
-function modalActionUse() {
-  if (activeInspectTarget.type !== 'bag') return;
-  applyItemDropToRed(activeInspectTarget.indexOrKey);
-  closeItemInfoModal();
-}
-
-function modalActionEquip() {
-  if (activeInspectTarget.type !== 'bag') return;
-  applyItemDropToRed(activeInspectTarget.indexOrKey);
-  closeItemInfoModal();
-}
-
-function modalActionDrop() {
-  if (activeInspectTarget.type !== 'bag') return;
-  applyItemDropToYellow(activeInspectTarget.indexOrKey);
-  closeItemInfoModal();
-}
-
-function modalActionUnequip() {
-  if (activeInspectTarget.type !== 'equip') return;
-  const p = state.player;
-  const slotKey = activeInspectTarget.indexOrKey;
-
-  if (p.bag.length >= 6) {
-    addLog(`背包已滿（6/6），無法卸下裝備！`, "text-rose-400");
-    return;
-  }
-
-  if (p.equip && p.equip[slotKey]) {
-    const unequipped = p.equip[slotKey];
-    p.bag.push(unequipped.id);
-    p.equip[slotKey] = null;
-    addLog(`卸下了【${unequipped.name}】，已收回背包。`, "text-slate-400");
-  }
-
-  closeItemInfoModal();
-  updateUI();
-}
-
-// 💡 【核心修正】：徹底拿掉 span 黃色點點，只留純粹圖標與外框
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
@@ -1212,9 +1069,11 @@ function renderTacticalMap() {
 
   const hintEl = document.getElementById("map-target-hint");
   if (hintEl) {
-    if (missingMats.length > 0) {
+    if (DEV_CONFIG.isTestMode) {
+      hintEl.textContent = "🏛️ 角色測試模式：僅開放唯一地圖【立法院】";
+    } else if (missingMats.length > 0) {
       const targetItem = getSafeItem(state.trackedItemId);
-      hintEl.textContent = `🎯 追蹤【${targetItem.name}】中：金框 ⭐ 地標即為材料產地！`;
+      hintEl.textContent = `🎯 追蹤【${targetItem ? targetItem.name : ''}】中`;
     } else {
       hintEl.textContent = "點擊島嶼地標直接前往 (-5 體力)";
     }
@@ -1224,11 +1083,7 @@ function renderTacticalMap() {
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
     const isPendingClose = !isClosed && state.pendingCloseZones.includes(z.id);
-
-    const hasNeededMaterial = !isClosed && missingMats.some(mId => {
-      const targetId = ItemRegistry.ALIAS[mId] || mId;
-      return z.drops && (z.drops.includes(mId) || z.drops.includes(targetId));
-    });
+    const aiCountHere = state.ais.filter(a => a && a.alive && a.zone === z.id).length;
 
     let pillClass = "bg-slate-950/95 border border-amber-700/60 text-slate-100 shadow-md";
     let iconFilter = "drop-shadow-[0_3px_4px_rgba(0,0,0,0.9)]";
@@ -1238,17 +1093,11 @@ function renderTacticalMap() {
     if (isCurrent && isPendingClose) {
       pillClass = "bg-amber-950 border-2 border-amber-400 text-amber-200 animate-pulse shadow-[0_0_14px_rgba(245,158,11,0.9)]";
       badgeLeft = `<span class="bg-amber-500 text-slate-950 text-[9px] font-black px-1 rounded-xs mr-0.5">⚠️</span>`;
-      pinTop = `
-        <div class="-mb-1 z-20 animate-bounce flex flex-col items-center">
-          <div class="w-5 h-5 rounded-full bg-amber-500 border-2 border-white text-slate-950 text-[10px] font-black flex items-center justify-center shadow-lg">!</div>
-          <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-white"></div>
-        </div>
-      `;
     } else if (isCurrent) {
       pillClass = "bg-sky-950 border-2 border-sky-400 text-white shadow-[0_0_12px_rgba(56,189,248,0.7)]";
       pinTop = `
         <div class="-mb-1 z-20 animate-bounce flex flex-col items-center">
-          <div class="w-5 h-5 rounded-full bg-sky-500 border-2 border-white text-white text-[10px] font-black flex items-center justify-center shadow-lg">1</div>
+          <div class="w-5 h-5 rounded-full bg-sky-500 border-2 border-white text-white text-[10px] font-black flex items-center justify-center shadow-lg">你</div>
           <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-white"></div>
         </div>
       `;
@@ -1259,10 +1108,11 @@ function renderTacticalMap() {
     } else if (isPendingClose) {
       pillClass = "bg-amber-950 border-2 border-amber-500 text-amber-200 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.6)]";
       badgeLeft = `<span class="bg-amber-500 text-slate-950 text-[9px] font-black px-1 rounded-xs mr-0.5">⚠️</span>`;
-    } else if (hasNeededMaterial) {
-      pillClass = "bg-amber-950/95 border-2 border-amber-300 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.75)] animate-pulse";
-      badgeLeft = `<span class="text-[10px] mr-0.5">⭐</span>`;
     }
+
+    const aiBadge = (DEV_CONFIG.isTestMode && aiCountHere > 0)
+      ? `<span class="ml-1 text-[9px] text-amber-400 font-mono">(${aiCountHere}AI)</span>`
+      : "";
 
     return `
       <div onclick="moveZone('${z.id}')" 
@@ -1273,6 +1123,7 @@ function renderTacticalMap() {
         <div class="px-1.5 py-0.5 rounded-md flex items-center whitespace-nowrap ${pillClass}">
           ${badgeLeft}
           <span class="text-[10px] font-black tracking-tight">${z.name}</span>
+          ${aiBadge}
         </div>
       </div>
     `;
@@ -1281,60 +1132,26 @@ function renderTacticalMap() {
   container.innerHTML = `
     <div class="relative w-full h-full rounded-2xl overflow-hidden border border-slate-700/80 shadow-inner"
          style="background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);">
-      
-      <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 360 520" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="islandLand" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#334155" />
-            <stop offset="25%" stop-color="#1e293b" />
-            <stop offset="65%" stop-color="#1e293b" />
-            <stop offset="100%" stop-color="#14332a" />
-          </linearGradient>
-          <filter id="coastGlow" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.35"/>
-          </filter>
-        </defs>
-
-        <path d="M 15,25 Q 40,18 65,25 M 280,20 Q 310,12 340,22 M 20,495 Q 50,488 80,495" stroke="#1e3a8a" stroke-width="1.5" fill="none" opacity="0.5"/>
-
-        <path d="M 55,22 
-                 C 110,8 240,8 295,25 
-                 C 330,45 342,115 335,190 
-                 C 328,265 342,340 328,420 
-                 C 315,475 265,498 180,502 
-                 C 95,498 40,475 28,415 
-                 C 15,345 25,260 20,180 
-                 C 15,105 25,40 55,22 Z" 
-              fill="url(#islandLand)" 
-              stroke="#fbbf24" 
-              stroke-opacity="0.45"
-              stroke-width="2.5" 
-              filter="url(#coastGlow)" />
-
-        <path d="M 55,22 C 110,8 240,8 295,25 C 275,38 95,38 55,22 Z" fill="#d97706" opacity="0.28" />
-        <path d="M 240,75 C 310,80 330,140 320,200 C 270,190 250,130 240,75 Z" fill="#065f46" opacity="0.35" />
-        <path d="M 35,380 C 120,370 250,375 322,400 C 310,470 260,495 180,498 C 95,495 45,465 35,380 Z" fill="#064e3b" opacity="0.45" />
-
-        <g stroke="#94a3b8" stroke-opacity="0.32" stroke-width="1.3" fill="none">
-          <path d="M 30,68 L 130,75 L 235,68 L 328,75" />
-          <path d="M 22,128 L 120,122 L 230,130 L 335,125" />
-          <path d="M 22,192 L 125,188 L 228,192 L 330,195" />
-          <path d="M 20,255 L 135,245 L 225,245 L 335,255" />
-          <path d="M 22,320 L 120,305 L 240,305 L 335,320" />
-          <path d="M 28,395 L 130,385 L 235,390 L 325,395" />
-
-          <path d="M 125,12 L 130,75 L 120,122 L 125,188 L 135,245 L 120,305 L 125,385 L 120,490" />
-          <path d="M 235,12 L 235,68 L 230,130 L 228,192 L 225,245 L 240,305 L 235,390 L 240,490" />
-          <path d="M 180,188 L 180,245" />
-        </g>
-      </svg>
-
       <div class="relative w-full h-full">
         ${nodesHTML}
       </div>
-
     </div>
   `;
+}
+
+function getPlayerStatusBadgesHTML(p) {
+  const badges = [];
+  if (p.stunRemain > 0) badges.push(`<span class="px-1.5 py-0.2 bg-rose-950 border border-rose-500 text-rose-300 rounded text-[9px] font-bold">🎤定身 ${p.stunRemain}s</span>`);
+  if (p.weakRemain > 0) badges.push(`<span class="px-1.5 py-0.2 bg-rose-950 border border-rose-500 text-rose-300 rounded text-[9px] font-bold">📉攻減半 ${p.weakRemain}s</span>`);
+  if (p.reflectRemain > 0) badges.push(`<span class="px-1.5 py-0.2 bg-amber-950 border border-amber-400 text-amber-300 rounded text-[9px] font-bold">🔄反傷 ${p.reflectRemain}s</span>`);
+  if (p.stealthRemain > 0) badges.push(`<span class="px-1.5 py-0.2 bg-sky-950 border border-sky-400 text-sky-300 rounded text-[9px] font-bold">👻隱蔽1.5x ${p.stealthRemain}s</span>`);
+  if (p.guanDefBuffRemain > 0) badges.push(`<span class="px-1.5 py-0.2 bg-emerald-950 border border-emerald-500 text-emerald-300 rounded text-[9px] font-bold">📹防+6 (${p.guanDefBuffRemain}s)</span>`);
+  if (p.milkDefBuffRemain > 0) badges.push(`<span class="px-1.5 py-0.2 bg-emerald-950 border border-emerald-500 text-emerald-300 rounded text-[9px] font-bold">🥛防+5 (${p.milkDefBuffRemain}s)</span>`);
+  if (p.id === "laixiangde") badges.push(`<span class="px-1.5 py-0.2 bg-amber-950 border border-amber-500 text-amber-300 rounded text-[9px] font-bold">🙏功德 +${p.meritCount}/10</span>`);
+  if (p.id === "kewenzhe") badges.push(`<span class="px-1.5 py-0.2 bg-emerald-950 border border-emerald-500 text-emerald-300 rounded text-[9px] font-bold">💪受擊 ${p.hitTakenCount}/3</span>`);
+  if (p.id === "jiangwanan") badges.push(`<span class="px-1.5 py-0.2 ${p.dodgeReady ? 'bg-sky-950 border-sky-400 text-sky-300' : 'bg-slate-800 border-slate-600 text-slate-400'} border rounded text-[9px] font-bold">💨問A答B:${p.dodgeReady ? '就緒' : p.dodgeCdRemain + 's'}</span>`);
+  if (isChaoGeAuraAffecting(p)) badges.push(`<span class="px-1.5 py-0.2 bg-rose-950 border border-rose-500 text-rose-300 rounded text-[9px] font-bold">⚠️超派破防-20%</span>`);
+  return badges.join(" ");
 }
 
 function updateUI() {
@@ -1342,8 +1159,30 @@ function updateUI() {
   const p = state.player;
   const ai = state.ai;
 
+  const pNameEl = document.getElementById("player-name");
+  if (pNameEl) pNameEl.textContent = p.name;
+
   const statEl = document.getElementById("player-stats");
-  if (statEl) statEl.textContent = `攻擊 ${getTotalAtk(p)} | 防禦 ${getTotalDef(p)}`;
+  if (statEl) {
+    statEl.innerHTML = `攻擊 ${getTotalAtk(p)} | 防禦 ${getTotalDef(p)} <span class="text-slate-400 font-normal">• 被動:${p.passive ? p.passive.name : ''}</span>`;
+  }
+
+  const badgeBox = document.getElementById("player-status-badges");
+  if (badgeBox) badgeBox.innerHTML = getPlayerStatusBadgesHTML(p);
+
+  // 更新角色面板上的主動技按鈕與戰鬥面板上的技能按鈕
+  const quickSkillBtn = document.getElementById("btn-quick-skill");
+  const combatSkillBtn = document.getElementById("btn-combat-skill");
+  if (p.skill) {
+    let btnLabel = `${p.skill.icon} ${p.skill.name}`;
+    if (p.id === "wangshijian" && p.stealthRemain > 0) {
+      btnLabel = `👻 隱蔽中(${p.stealthRemain}s)`;
+    } else if (p.skillCdRemain > 0) {
+      btnLabel = `⏳ CD ${p.skillCdRemain}s`;
+    }
+    if (quickSkillBtn) quickSkillBtn.textContent = btnLabel;
+    if (combatSkillBtn) combatSkillBtn.innerHTML = `<span>${btnLabel}</span>`;
+  }
 
   const zObj = getSafeCurrentZone(p.zone);
 
@@ -1358,9 +1197,10 @@ function updateUI() {
   if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
   const timerBadge = document.getElementById("zone-timer-badge");
+  const aliveAICount = state.ais.filter(a => a && a.alive).length;
   if (timerBadge) {
     if (!DEV_CONFIG.enableZoneClose) {
-      timerBadge.textContent = "🛠️ 測試模式 (無縮圈)";
+      timerBadge.textContent = `🏛️ 立法院測試 (存活AI: ${aliveAICount})`;
       timerBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-950/90 border border-emerald-600/60 text-emerald-300";
     } else {
       const curCfg = BS_ZONE_ROUNDS[state.currentRoundIdx];
@@ -1369,10 +1209,10 @@ function updateUI() {
       const secStr = (remain % 60).toString().padStart(2, '0');
 
       if (remain <= 20) {
-        timerBadge.textContent = `⚠️ R${curCfg.round} 警報: ${minStr}:${secStr}`;
+        timerBadge.textContent = `⚠️ R${curCfg.round} 警報: ${minStr}:${secStr} (剩${aliveAICount}AI)`;
         timerBadge.className = "text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-rose-600 border border-rose-300 text-white animate-pulse shadow";
       } else {
-        timerBadge.textContent = `🔥 R${curCfg.round} 縮圈: ${minStr}:${secStr}`;
+        timerBadge.textContent = `🔥 R${curCfg.round} 縮圈: ${minStr}:${secStr} (剩${aliveAICount}AI)`;
         timerBadge.className = "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-900/90 border border-slate-700 text-amber-400";
       }
     }
@@ -1407,25 +1247,10 @@ function updateUI() {
   renderEquipSixGrid(p);
   renderTargetTracker();
 
-  const mapPing = document.getElementById("map-btn-ping");
-  if (mapPing) {
-    const missing = getMissingTrackedMaterials();
-    if (missing.length > 0 || isPlayerInPending || isPlayerInClosed) {
-      mapPing.classList.remove("hidden");
-    } else {
-      mapPing.classList.add("hidden");
-    }
-  }
-
   const craftBox = document.getElementById("craft-alert-box");
   const availableRecipes = findAvailableRecipes(p);
   if (availableRecipes.length > 0 && craftBox) {
     craftBox.classList.remove("hidden");
-    craftBox.innerHTML = availableRecipes.map(r => {
-      const targetItem = getSafeItem(r.result);
-      const rarity = ItemRegistry.getRarity(targetItem.id);
-      return `<button onclick="craftItem(state.player, getSafeRecipes().find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】(${rarity.shortName})</span><span>${r.desc}</span></button>`;
-    }).join("");
   } else if (craftBox) { 
     craftBox.classList.add("hidden"); 
   }
@@ -1445,8 +1270,11 @@ function updateUI() {
 
     const zoneDrops = document.getElementById("zone-drops");
     if (zoneDrops && zObj) {
-      const dropNames = (zObj.drops || []).map(id => getItemDisplayName(id));
-      zoneDrops.textContent = `可搜刮：${dropNames.join("、")}`;
+      const sameZoneAIs = state.ais.filter(a => a && a.alive && a.zone === p.zone);
+      const aiNames = sameZoneAIs.map(a => a.name).join("、");
+      zoneDrops.textContent = sameZoneAIs.length > 0
+        ? `同區角色 (${sameZoneAIs.length})：${aiNames}`
+        : `同區角色：目前無人（物資待重新設計）`;
     }
   }
 
@@ -1460,15 +1288,17 @@ function updateUI() {
     invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
       if (p.bag && p.bag[i]) {
         const item = getSafeItem(p.bag[i]);
-        const rarity = ItemRegistry.getRarity(item.id);
-        return `
-          <div ontouchstart="handleItemTouchStart(event, ${i})"
-               ontouchmove="handleItemTouchMove(event)"
-               ontouchend="handleItemTouchEnd(event)"
-               class="bg-slate-800 hover:bg-slate-700 active:scale-95 border-2 ${rarity.border} rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none ${rarity.glow}">
-            <div class="text-xs font-bold truncate ${rarity.text}">${item.name}</div>
-          </div>
-        `;
+        if (item) {
+          const rarity = ItemRegistry.getRarity(item.id);
+          return `
+            <div ontouchstart="handleItemTouchStart(event, ${i})"
+                 ontouchmove="handleItemTouchMove(event)"
+                 ontouchend="handleItemTouchEnd(event)"
+                 class="bg-slate-800 hover:bg-slate-700 active:scale-95 border-2 ${rarity.border} rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none ${rarity.glow}">
+              <div class="text-xs font-bold truncate ${rarity.text}">${item.name}</div>
+            </div>
+          `;
+        }
       }
       return `<div class="bg-slate-900 border border-slate-800 rounded p-1 text-center text-slate-600 h-12 flex items-center justify-center text-xs">空</div>`;
     }).join("");
