@@ -1,8 +1,9 @@
 /**
  * 【模組：核心管家 main.js】
- * v51：
- * 1. 修正防具安全帽無法裝備問題（補齊 melon_helmet, tri_treasure_helmet 的 type: 'head' 映射）
- * 2. 裝備欄圖標跟隨品級色（邊框、SVG 圖標全套同步變色）
+ * v52：
+ * 1. 22 區直式戰術卡片地圖（方案 A：分區佈局、點擊直接移動免彈窗）
+ * 2. ⚠️ 縮圈倒數預告警告與 ⭐ 追蹤缺料發光標記
+ * 3. 五階品級色全套連動（白、綠、藍、黃、紅）
  */
 
 const ItemRegistry = {
@@ -22,7 +23,7 @@ const ItemRegistry = {
   },
 
   RARITY_MAP: {
-    // ⚪ 白 (1階)
+    // ⚪ 白 (1階：基礎材料 / 基礎裝備 / 基礎食物)
     plastic_chair: 1,
     tape: 1,
     battery: 1,
@@ -35,7 +36,7 @@ const ItemRegistry = {
     sticky_rice_sausage: 1,
     bento: 1,
 
-    // 🟢 綠 (2階)
+    // 🟢 綠 (2階：一次合成裝備 / 稀有物資)
     reinforced_chair: 2,
     megaphone: 2,
     tri_treasure_helmet: 2,
@@ -43,16 +44,16 @@ const ItemRegistry = {
     milk_tea: 2,
     stinky_tofu: 2,
 
-    // 🔵 藍 (3階)
+    // 🔵 藍 (3階：二次合成裝備 / 稀有極限料理)
     tw_hotdog: 3,
     electro_megaphone: 3,
     riot_shield: 3,
 
-    // 🟡 黃 (4階)
+    // 🟡 黃 (4階：三次合成主力神裝)
     thunder_roar_megaphone: 4,
     power_armor: 4,
 
-    // 🔴 紅 (5階)
+    // 🔴 紅 (5階：四次終極破陣神器)
     god_slayer_chair: 5
   },
 
@@ -76,7 +77,6 @@ const ItemRegistry = {
       if (p && p[resolvedId]) return p[resolvedId];
     }
 
-    // 兜底專用防呆字典（特別補上安全帽）
     const fallbacks = {
       melon_helmet: { id: "melon_helmet", name: "瓜皮安全帽", type: "head", def: 6, score: 10, desc: "台灣機車族標配，雖然遇到大撞擊可能先飛走，但至少防檢舉。" },
       tri_treasure_helmet: { id: "tri_treasure_helmet", name: "正港三寶全罩盔", type: "head", def: 18, score: 25, desc: "加裝了防風鏡與行車記錄器支架，三寶出巡無人能擋。" },
@@ -116,17 +116,11 @@ const EQUIP_SLOT_SVGS = {
   acc:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
-const DEFAULT_FALLBACK_ZONES = [
-  { id: "ly", name: "立法院", drops: ["plastic_chair", "megaphone", "water_balloon", "tape", "bento"] },
-  { id: "shilin", name: "士林夜市", drops: ["sausage", "sticky_rice_sausage", "milk_tea", "stinky_tofu"] },
-  { id: "taipei_main", name: "台北車站", drops: ["box_cutter", "umbrella", "tape", "battery", "melon_helmet"] },
-  { id: "hsinchu", name: "竹科科技廠", drops: ["laser_pointer", "battery", "tape", "water_balloon"] }
-];
-
 const state = {
   timeSec: 0,
   nextCloseSec: 45,
-  closedZones: [],
+  pendingCloseZones: [], // 💡 即將封鎖的預警區域（掛 ⚠️ 標誌）
+  closedZones: [],        // 💡 已封鎖的禁區（掛 🚫 標誌）
   inCombat: false,
   gameOver: false,
   isSearching: false,
@@ -139,9 +133,7 @@ function triggerPlayerBloodHitEffect() {
   const overlay = document.getElementById("fps-blood-hit-overlay");
   if (!overlay) return;
   overlay.classList.add("hit-active");
-  setTimeout(() => {
-    overlay.classList.remove("hit-active");
-  }, 220);
+  setTimeout(() => overlay.classList.remove("hit-active"), 220);
 }
 
 function spawnFloatingDamage(containerEl, text, isCrit = false) {
@@ -156,10 +148,13 @@ function spawnFloatingDamage(containerEl, text, isCrit = false) {
 }
 
 function getSafeZones() {
-  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.zones && GAME_DATA.zones.length > 0) {
+  if (typeof window.GAME_MAPS !== 'undefined' && Array.isArray(window.GAME_MAPS)) {
+    return window.GAME_MAPS;
+  }
+  if (typeof GAME_DATA !== 'undefined' && GAME_DATA.zones && GAME_DATA.zones.length > 0) {
     return GAME_DATA.zones;
   }
-  return DEFAULT_FALLBACK_ZONES;
+  return [];
 }
 
 function getSafeCurrentZone(zoneId) {
@@ -247,6 +242,7 @@ function initGame(isSandbox = false) {
 
   state.timeSec = 0;
   state.nextCloseSec = 45;
+  state.pendingCloseZones = [];
   state.closedZones = [];
   state.inCombat = false;
   state.gameOver = false;
@@ -271,7 +267,7 @@ function initGame(isSandbox = false) {
   } else {
     state.ai = {
       name: "嗡嗡阿伯", baseAtk: 14, baseDef: 8, maxHp: 130, hp: 130, maxSp: 100, sp: 100,
-      zone: "ly", alive: true, bag: ["sausage"],
+      zone: "ck_high", alive: true, bag: ["sausage"],
       equip: { weapon: null, head: null, chest: null, arm: null, leg: null, acc: null },
       skill: { name: "嗡嗡嗡", icon: "🐝", cd: 8, costSp: 10, cast: () => ({ dmg: 30, log: "連環打擊！" }) }
     };
@@ -285,9 +281,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】防具佩戴與圖標全彩色系已完全修復！", "text-emerald-400 font-bold");
+    addLog("【測試模式】22 大台北實名地標全面載入完成！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！所有物品皆可正確穿戴！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！全島 22 區戰術地圖展開！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -316,31 +312,43 @@ function startGameLoop() {
         }
       }
 
-      const warningEl = document.getElementById("zone-warning");
+      // 💡 縮圈機制：提早 15 秒掛 ⚠️ 警告，時間到轉為 🚫 禁區
       const allZones = getSafeZones();
       if (DEV_CONFIG.enableZoneClose) {
         const remainClose = state.nextCloseSec - state.timeSec;
-        if (warningEl && state.closedZones.length < 3) {
-          warningEl.className = "text-rose-400 font-semibold animate-pulse";
-          if (remainClose > 0) {
-            warningEl.textContent = `${remainClose}秒後封鎖下個區域`;
-          } else {
-            const open = allZones.filter(z => !state.closedZones.includes(z.id));
-            if (open.length > 1) {
-              state.closedZones.push(open[0].id);
-              state.nextCloseSec += 45;
-              addLog(`【全島緊急廣播】${open[0].name} 已被列為戒嚴禁區！`, "text-rose-500 font-bold");
-              
-              if (state.player.zone === open[0].id) {
-                state.player.hp = Math.max(1, state.player.hp - 25);
-                triggerPlayerBloodHitEffect();
-                addLog(`你滯留在禁區內，遭到驅離受到 25 點傷害！`, "text-rose-500 font-bold");
-              }
-              updateUI();
-            }
+
+        // 倒數 15 秒內，選定 1~2 個區域掛上 ⚠️ 預警
+        if (remainClose <= 15 && remainClose > 0 && state.pendingCloseZones.length === 0) {
+          const openCandidates = allZones.filter(z => z.id !== 'ly' && !state.closedZones.includes(z.id));
+          if (openCandidates.length > 1) {
+            const pick = openCandidates[Math.floor(Math.random() * openCandidates.length)];
+            state.pendingCloseZones = [pick.id];
+            addLog(`⚠️ 【廣播警報】${pick.name} 即將列入管制禁區，請儘速撤離！`, "text-amber-400 font-bold");
+            updateUI();
           }
-        } else if (state.closedZones.length >= 3 && warningEl) {
-          warningEl.textContent = `最終決戰區！強制死鬥！`;
+        }
+
+        // 時間到：正式封鎖
+        if (remainClose <= 0) {
+          if (state.pendingCloseZones.length > 0) {
+            state.pendingCloseZones.forEach(id => {
+              if (!state.closedZones.includes(id)) {
+                state.closedZones.push(id);
+                const zName = getSafeCurrentZone(id).name;
+                addLog(`🚫 【禁區封鎖】${zName} 已正式封鎖！留在區內將遭受驅離傷害！`, "text-rose-500 font-bold");
+              }
+            });
+            state.pendingCloseZones = [];
+          }
+          state.nextCloseSec += 45;
+
+          // 若玩家留在禁區扣血
+          if (state.closedZones.includes(state.player.zone)) {
+            state.player.hp = Math.max(1, state.player.hp - 25);
+            triggerPlayerBloodHitEffect();
+            addLog(`你滯留在禁區內遭受驅離，受到 25 點傷害！`, "text-rose-500 font-bold");
+          }
+          updateUI();
         }
       }
 
@@ -468,7 +476,6 @@ function executeSearchFinish() {
   const item = getSafeItem(dropId);
   const slot = item.type;
 
-  // 如果對應部位為空，自動穿戴
   if (p.equip && p.equip[slot] === null) {
     p.equip[slot] = item;
     addLog(`搜刮獲得並裝備【${item.name}】！`, "text-amber-300 font-bold");
@@ -495,16 +502,14 @@ function closeMapModal() {
   if (modal) modal.classList.add("hidden");
 }
 
-function isAdjacent(fromZoneId, toZoneId) {
-  return true;
-}
-
+// 💡 點擊直接移動：不跳確認視窗，立即生效並關閉地圖
 function moveZone(targetZoneId) {
   if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
 
   if (p.zone === targetZoneId) {
     addLog("你已經在這個區域了。", "text-slate-400");
+    closeMapModal();
     return;
   }
 
@@ -838,7 +843,6 @@ function applyItemDropToYellow(bagIdx) {
   updateUI();
 }
 
-// 💡 修正裝備部位判定：支援 head, chest, arm, leg, acc, weapon
 function applyItemDropToRed(bagIdx) {
   if (bagIdx === null || !state.player) return;
   const p = state.player;
@@ -846,7 +850,6 @@ function applyItemDropToRed(bagIdx) {
   const item = getSafeItem(itemId);
   if (!item) return;
 
-  // 1. 食物判定
   if (item.type === "food") {
     const healHp = item.hp || 0;
     const healSp = item.sp || 0;
@@ -855,7 +858,6 @@ function applyItemDropToRed(bagIdx) {
     p.bag.splice(bagIdx, 1);
     addLog(`吃掉了【${item.name}】！回復 ${healHp} HP / ${healSp} SP。`, "text-emerald-400 font-bold");
   } 
-  // 2. 裝備判定 (包含安全帽 head, 衣服 chest 等)
   else if (p.equip && ['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
     const slot = item.type;
     const oldItem = p.equip[slot];
@@ -1066,7 +1068,6 @@ function modalActionUnequip() {
   updateUI();
 }
 
-// 💡 裝備欄 6 格：外框與裡面 SVG 圖標同時隨品級色變色！
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
@@ -1085,7 +1086,6 @@ function renderEquipSixGrid(p) {
       const rarity = ItemRegistry.getRarity(s.item.id);
       return `
         <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border-2 ${rarity.border} bg-slate-900/95 flex items-center justify-center relative cursor-pointer active:scale-95 transition ${rarity.glow}" title="點擊檢視 ${s.item.name}">
-          <!-- 💡 內部 SVG 圖標同步品級色 -->
           <div class="${rarity.iconColor}">
             ${s.svg}
           </div>
@@ -1101,6 +1101,9 @@ function renderEquipSixGrid(p) {
   }).join("");
 }
 
+// ==========================================
+// 💡 【全新 22 區直式戰術卡片地圖（方案 A）】
+// ==========================================
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
   if (!container || !state.player) return;
@@ -1113,63 +1116,122 @@ function renderTacticalMap() {
   if (hintEl) {
     if (missingMats.length > 0) {
       const targetItem = getSafeItem(state.trackedItemId);
-      hintEl.textContent = `🎯 正在尋找【${targetItem.name}】所需材料，黃框處即為掉落地！`;
+      hintEl.textContent = `🎯 正在追蹤【${targetItem.name}】所需材料，黃框 ⭐ 即為掉落地！`;
     } else {
-      hintEl.textContent = "全島自由移動 (-5 體力)";
+      hintEl.textContent = "點擊地標直接前往 (-5 體力)";
     }
   }
 
-  const buildNodeHTML = (zoneId) => {
+  // 渲染單個地標按鈕的工廠函數
+  const createMapBtn = (zoneId, isCenter = false) => {
     const z = zones.find(x => x.id === zoneId);
     if (!z) return "";
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
+    const isPendingClose = !isClosed && state.pendingCloseZones.includes(z.id);
     const canMove = !isClosed && !isCurrent;
 
+    // 是否包含追蹤缺料
     const hasNeededMaterial = !isClosed && missingMats.some(mId => {
       const targetId = ItemRegistry.ALIAS[mId] || mId;
       return z.drops && (z.drops.includes(mId) || z.drops.includes(targetId));
     });
 
-    let boxStyle = "bg-slate-900 border-slate-800 text-slate-500";
-    let statusTag = "自由直達";
+    let boxStyle = "bg-slate-900 border-slate-800 text-slate-400";
+    let statusBadge = "";
 
     if (isCurrent) {
-      boxStyle = "bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-950";
-      statusTag = "目前位置";
+      boxStyle = "bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-950 font-black";
+      statusBadge = `<span class="text-[9px] bg-indigo-950 px-1 py-0.5 rounded text-indigo-200">目前</span>`;
     } else if (isClosed) {
-      boxStyle = "bg-rose-950 border-rose-800 text-rose-500 line-through opacity-60";
-      statusTag = "禁區封鎖";
+      boxStyle = "bg-rose-950/80 border-rose-900 text-rose-500/70 line-through opacity-50 cursor-not-allowed";
+      statusBadge = `<span class="text-[9px] text-rose-500">🚫 禁區</span>`;
+    } else if (isPendingClose) {
+      boxStyle = "bg-rose-950/90 border-2 border-rose-500 text-rose-200 animate-pulse cursor-pointer shadow-lg shadow-rose-950";
+      statusBadge = `<span class="text-[9px] bg-rose-600 text-white px-1 py-0.2 rounded font-black">⚠️ 預警</span>`;
     } else if (hasNeededMaterial) {
-      boxStyle = "bg-amber-950/90 border-2 border-amber-400 text-amber-200 cursor-pointer shadow-lg shadow-amber-950/60 animate-pulse";
-      statusTag = "⭐ 包含缺少的目標材料！";
+      boxStyle = "bg-amber-950/90 border-2 border-amber-400 text-amber-200 cursor-pointer shadow-lg shadow-amber-950/70 animate-pulse";
+      statusBadge = `<span class="text-[9px] text-amber-400 font-bold">⭐ 缺料</span>`;
     } else if (canMove) {
-      boxStyle = "bg-emerald-950/90 hover:bg-emerald-900 border-emerald-500 text-emerald-200 cursor-pointer shadow-md";
-      statusTag = "可前往 (-5體)";
+      boxStyle = "bg-slate-900/90 hover:bg-slate-800 border-slate-700/80 hover:border-slate-500 text-slate-200 cursor-pointer shadow-sm";
+      statusBadge = `<span class="text-[9px] text-slate-500 font-mono">-5體</span>`;
     }
 
+    const centerScale = isCenter ? "col-span-3 py-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-indigo-500/80 text-white shadow-xl" : "py-1.5";
+
     return `
-      <button onclick="moveZone('${z.id}')" class="w-48 py-2 px-3 rounded-xl border-2 text-center transition active:scale-95 ${boxStyle}">
-        <div class="text-sm font-black tracking-wider flex items-center justify-center gap-1">
-          ${hasNeededMaterial ? '<span>⭐</span>' : ''}
-          <span>${z.name}</span>
-        </div>
-        <div class="text-[9px] mt-0.5 opacity-90 font-mono">${statusTag}</div>
+      <button onclick="moveZone('${z.id}')" class="relative rounded-xl border text-center transition active:scale-95 flex flex-col items-center justify-center px-1 ${boxStyle} ${centerScale}">
+        <span class="text-xs font-black truncate max-w-[95px] tracking-wide">${z.name}</span>
+        <div class="mt-0.5">${statusBadge}</div>
       </button>
     `;
   };
 
+  // 💡 直式 22 區戰術分區佈局（北區、西區、中央核心、東區、南區）
   container.innerHTML = `
-    ${buildNodeHTML("shilin")}
-    <div class="h-3 w-0.5 bg-slate-600"></div>
-    ${buildNodeHTML("taipei_main")}
-    <div class="w-48 h-3 flex justify-around">
-      <div class="h-full w-0.5 bg-slate-600"></div>
-      <div class="h-full w-0.5 bg-slate-600"></div>
+    <!-- 1. 北部海岸線 (5區) -->
+    <div class="w-full">
+      <div class="text-[9px] text-sky-400 font-bold uppercase tracking-widest mb-1">🌊 北部海岸 • 港口水域</div>
+      <div class="grid grid-cols-3 gap-1.5">
+        ${createMapBtn("baishawan")}
+        ${createMapBtn("fugui_cape")}
+        ${createMapBtn("dadaocheng")}
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 mt-1.5">
+        ${createMapBtn("beitou")}
+        ${createMapBtn("zhitong_tunnel")}
+      </div>
     </div>
-    <div class="flex gap-3">
-      ${buildNodeHTML("ly")}
-      ${buildNodeHTML("hsinchu")}
+
+    <!-- 2. 中央核心特區 (立法院置中放大) -->
+    <div class="w-full my-1">
+      <div class="text-[9px] text-amber-400 font-bold uppercase tracking-widest mb-1">⚡ 核心特區 • 決賽死鬥點</div>
+      <div class="grid grid-cols-3 gap-1.5">
+        ${createMapBtn("ly", true)}
+      </div>
+    </div>
+
+    <!-- 3. 西區與文教 (4區) -->
+    <div class="w-full">
+      <div class="text-[9px] text-indigo-400 font-bold uppercase tracking-widest mb-1">🏛️ 西區老街 • 醫療文教</div>
+      <div class="grid grid-cols-2 gap-1.5">
+        ${createMapBtn("bopiliao")}
+        ${createMapBtn("longshan_temple")}
+        ${createMapBtn("ximen")}
+        ${createMapBtn("ntu_hospital")}
+      </div>
+      <div class="grid grid-cols-1 gap-1.5 mt-1.5">
+        ${createMapBtn("ck_high")}
+      </div>
+    </div>
+
+    <!-- 4. 東區政經都會 (7區) -->
+    <div class="w-full">
+      <div class="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mb-1">🏙️ 東區都會 • 行政防衛</div>
+      <div class="grid grid-cols-3 gap-1.5">
+        ${createMapBtn("taipei_gov")}
+        ${createMapBtn("xinyi_fire")}
+        ${createMapBtn("minsheng")}
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 mt-1.5">
+        ${createMapBtn("grand_hotel")}
+        ${createMapBtn("defense_dept")}
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 mt-1.5">
+        ${createMapBtn("jinan_church")}
+        ${createMapBtn("daan_park")}
+      </div>
+    </div>
+
+    <!-- 5. 南部山區林地 (4區) -->
+    <div class="w-full">
+      <div class="text-[9px] text-rose-400 font-bold uppercase tracking-widest mb-1">🌲 南部近郊 • 山林公墓</div>
+      <div class="grid grid-cols-2 gap-1.5">
+        ${createMapBtn("qingtian")}
+        ${createMapBtn("xiangshan")}
+        ${createMapBtn("wugu_ind")}
+        ${createMapBtn("liuzhangli")}
+      </div>
     </div>
   `;
 }
