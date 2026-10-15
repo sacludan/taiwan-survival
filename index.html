@@ -84,7 +84,7 @@
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
           <p>1. 搜刮同區域有 60% 機率遭遇敵人或 40% 獲得物資。</p>
           <p>2. 點擊底部左側「📖 合成表」可隨時查閱並追蹤目標裝備。</p>
-          <p>3. 探索區左側透明小框即時顯示目標素材收集進度！</p>
+          <p>3. 點擊任何道具可深入檢視上下位合成樹。</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -97,7 +97,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.40 • Target Tracker Integrated
+        MVP v0.41 • Recipe Tree & Tracking
       </div>
     </div>
 
@@ -129,19 +129,16 @@
             </button>
           </div>
 
-          <!-- 💡 綠色框區域：半透明背景目標材料追蹤面板 -->
+          <!-- 綠色框區域：半透明目標材料追蹤面板 (預設隱藏，點擊追蹤後出現) -->
           <div class="relative py-1 flex items-start">
-            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="w-48 bg-slate-950/60 hover:bg-slate-950/80 backdrop-blur-[2px] border border-amber-500/40 rounded-xl p-2 shadow-lg transition text-left cursor-pointer">
+            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-48 bg-slate-950/60 hover:bg-slate-950/80 backdrop-blur-[2px] border border-amber-500/40 rounded-xl p-2 shadow-lg transition text-left cursor-pointer">
               <div class="flex justify-between items-center border-b border-slate-700/50 pb-1 mb-1">
                 <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
                   <span>🎯 目標追蹤</span>
                 </span>
-                <span id="tracker-target-name" class="text-[11px] font-bold text-white truncate max-w-[85px]">強化折凳</span>
+                <span id="tracker-target-name" class="text-[11px] font-bold text-white truncate max-w-[85px]">目標物品</span>
               </div>
-              <!-- 動態素材清單 -->
-              <div id="tracker-materials-list" class="space-y-0.5 text-[10px] font-mono text-slate-300">
-                <!-- 由 JS 動態生成 -->
-              </div>
+              <div id="tracker-materials-list" class="space-y-0.5 text-[10px] font-mono text-slate-300"></div>
             </div>
           </div>
 
@@ -299,25 +296,26 @@
         </div>
       </div>
 
-      <!-- 物品詳細資訊彈窗 -->
+      <!-- 物品詳細資訊與上下位合成樹檢視彈窗 -->
       <div id="item-info-modal" onclick="closeItemInfoModal(event)" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-[310px] rounded-2xl p-5 shadow-2xl space-y-4 text-left" onclick="event.stopPropagation()">
-          <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-[320px] rounded-2xl p-5 shadow-2xl space-y-3 text-left" onclick="event.stopPropagation()">
+          <div class="flex justify-between items-start border-b border-slate-800 pb-2.5">
             <div>
               <div id="info-item-category" class="text-[10px] font-mono text-indigo-400 uppercase tracking-widest">裝備部位</div>
-              <div id="info-item-name" class="text-lg font-black text-amber-400 mt-0.5">物品名稱</div>
+              <div id="info-item-name" class="text-base font-black text-amber-400 mt-0.5">物品名稱</div>
             </div>
             <div id="info-item-stat" class="text-xs font-mono font-bold px-2 py-1 bg-slate-800 rounded border border-slate-700 text-emerald-400">+8 攻</div>
           </div>
 
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-            <div class="text-[10px] text-slate-500 font-bold mb-1">【戰術情報與幹話】</div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80">
+            <div class="text-[10px] text-slate-500 font-bold mb-0.5">【戰術情報與幹話】</div>
             <div id="info-item-desc" class="text-xs text-slate-300 leading-relaxed italic">描述資訊</div>
           </div>
 
-          <div id="info-buttons-container" class="space-y-2 pt-1"></div>
+          <!-- 💡 動態插入上下位合成樹 + 操作按鈕 -->
+          <div id="info-buttons-container" class="space-y-2"></div>
 
-          <button onclick="closeItemInfoModal()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
+          <button onclick="closeItemInfoModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
             返回
           </button>
         </div>
@@ -373,19 +371,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=40) -->
-  <script src="items_weapon.js?v=40"></script>
-  <script src="items_armor.js?v=40"></script>
-  <script src="items_material.js?v=40"></script>
-  <script src="items_food.js?v=40"></script>
-  <script src="recipes.js?v=40"></script>
-  <script src="maps.js?v=40"></script>
-  <script src="characters.js?v=40"></script>
-  <script src="game_config.js?v=40"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=41) -->
+  <script src="items_weapon.js?v=41"></script>
+  <script src="items_armor.js?v=41"></script>
+  <script src="items_material.js?v=41"></script>
+  <script src="items_food.js?v=41"></script>
+  <script src="recipes.js?v=41"></script>
+  <script src="maps.js?v=41"></script>
+  <script src="characters.js?v=41"></script>
+  <script src="game_config.js?v=41"></script>
   
-  <script src="lobby.js?v=40"></script>
-  <script src="ai.js?v=40"></script>
-  <script src="combat.js?v=40"></script>
-  <script src="main.js?v=40"></script>
+  <script src="lobby.js?v=41"></script>
+  <script src="ai.js?v=41"></script>
+  <script src="combat.js?v=41"></script>
+  <script src="main.js?v=41"></script>
 </body>
 </html>
