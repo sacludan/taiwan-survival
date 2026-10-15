@@ -19,7 +19,6 @@
       background-color: #020617;
     }
 
-    /* 外框縮小 10% (90vh) */
     .iphone-device-frame {
       width: 100%;
       max-width: 402px;
@@ -73,9 +72,7 @@
 
   <div class="iphone-device-frame bg-slate-900 flex flex-col justify-between border border-slate-800 relative">
 
-    <!-- ========================================== -->
-    <!-- 1. 【遊戲主大廳畫面】 -->
-    <!-- ========================================== -->
+    <!-- 1. 遊戲主大廳畫面 -->
     <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-5 text-center pt-8 pb-6">
       <div class="mt-4">
         <h1 class="text-3xl font-black text-white tracking-wider mb-1">台灣生存戰</h1>
@@ -84,10 +81,10 @@
 
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-left text-xs text-slate-300 space-y-1.5 mb-2">
-          <div class="font-bold text-amber-400 mb-1">戰鬥特色操作：</div>
-          <p>1. 普攻後 3 秒硬直中，可立即無縫接技能！</p>
-          <p>2. 技能擁有獨立 10 秒冷卻時間，放完需硬直 3 秒。</p>
-          <p>3. 點擊「食物」自動吃背包回血量最高的補品。</p>
+          <div class="font-bold text-amber-400 mb-1">經典黑倖探索機制：</div>
+          <p>1. 每次搜刮可能獲得物資，或遭遇敵人！</p>
+          <p>2. 遭遇敵人可選擇攻擊、技能或撤退，行動後需再次搜刮追蹤。</p>
+          <p>3. 吃補回血請在平時直接點擊背包食物使用。</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -100,20 +97,18 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        Scaled 90vh Frame • MVP v0.33
+        Black Survival Style MVP v0.36
       </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 2. 【遊戲戰鬥主畫面】 -->
-    <!-- ========================================== -->
+    <!-- 2. 遊戲主畫面 -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative overflow-hidden">
 
       <main class="flex-1 px-3 py-2 flex flex-col justify-between gap-2 overflow-hidden relative">
         <div id="craft-alert-box" class="hidden"></div>
 
         <!-- 探索面板 -->
-        <div id="drop-zone-yellow" 
+        <div id="explore-panel" 
              onclick="triggerSearch()"
              ondragover="handleDragOverYellow(event)" 
              ondragleave="handleDragLeaveYellow(event)" 
@@ -150,16 +145,16 @@
 
         </div>
 
-        <!-- 戰鬥面板 -->
-        <div id="combat-panel" class="hidden bg-rose-950/40 border-2 border-rose-600/80 rounded-xl p-2.5 space-y-2">
-          <div class="flex justify-between items-center border-b border-rose-800/60 pb-1.5">
+        <!-- 💡 黑色倖存者式「單次遭遇交鋒面板」（遭遇時出現，做完動作即返回探索） -->
+        <div id="combat-panel" class="hidden bg-rose-950/60 border-2 border-rose-600 rounded-xl p-3 space-y-2.5">
+          <div class="flex justify-between items-center border-b border-rose-800/80 pb-1.5">
             <div>
-              <span class="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold">遭遇戰 (回合制)</span>
-              <h3 id="enemy-name" class="text-base font-extrabold text-white mt-0.5">嗡嗡阿伯</h3>
+              <span class="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide animate-pulse">! 遭遇對手 !</span>
+              <h3 id="enemy-name" class="text-base font-extrabold text-white mt-1">嗡嗡阿伯</h3>
               <p id="enemy-stats" class="text-[11px] text-rose-200">攻擊 14 | 防禦 8</p>
             </div>
             <div class="text-right">
-              <span id="combat-cooldown-text" class="text-xs text-amber-400 font-mono font-bold block">指令就緒</span>
+              <span class="text-[10px] text-amber-300 font-bold block">選擇本次交鋒行動</span>
               <span id="enemy-hp-text" class="text-xs font-mono text-rose-300 font-bold">HP: 130/130</span>
             </div>
           </div>
@@ -168,18 +163,16 @@
             <div id="enemy-hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
           </div>
 
-          <div class="grid grid-cols-4 gap-1.5 pt-0.5">
-            <button id="btn-combat-atk" onclick="executeCombatAction('attack')" class="bg-amber-600 hover:bg-amber-500 active:scale-95 text-slate-950 font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
+          <!-- 3 大行動按鈕：攻擊、技能、撤退（撤掉食物按鈕） -->
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <button id="btn-combat-atk" onclick="executeCombatAction('attack')" class="bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black py-2.5 px-2 rounded-xl text-xs shadow-md transition flex flex-col items-center justify-center">
               <span>⚔️ 攻擊</span>
             </button>
-            <button id="btn-combat-skill" onclick="executeCombatAction('skill')" class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
+            <button id="btn-combat-skill" onclick="executeCombatAction('skill')" class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black py-2.5 px-2 rounded-xl text-xs shadow-md transition flex flex-col items-center justify-center">
               <span>✨ 技能</span>
             </button>
-            <button id="btn-combat-food" onclick="executeCombatAction('food')" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
-              <span>🍖 食物</span>
-            </button>
-            <button id="btn-combat-flee" onclick="executeCombatAction('flee')" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
-              <span>🏃 逃跑</span>
+            <button id="btn-combat-flee" onclick="executeCombatAction('flee')" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-slate-200 font-bold py-2.5 px-2 rounded-xl text-xs shadow-md transition flex flex-col items-center justify-center">
+              <span>🏃 撤退</span>
             </button>
           </div>
         </div>
@@ -225,7 +218,7 @@
         </div>
       </main>
 
-      <!-- 底部隨身背包與右下角離開選單按鈕 -->
+      <!-- 底部隨身背包 -->
       <footer class="px-3 py-1.5 bg-slate-950 border-t border-slate-800 relative">
         <div class="flex justify-between text-[11px] text-slate-400 mb-1">
           <span>隨身背包</span>
@@ -233,7 +226,6 @@
         </div>
         <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[52px]"></div>
 
-        <!-- 💡 紅圈標記位置：離開/選單按鈕 (居中偏右，不靠邊緣防誤觸) -->
         <div class="flex justify-end pr-8 pt-1">
           <button onclick="openExitConfirmModal()" class="px-3.5 py-1 bg-slate-800/90 hover:bg-slate-700 active:scale-95 border border-slate-700/80 rounded-lg text-[10px] font-bold text-slate-300 shadow transition flex items-center gap-1">
             <span>⚙️ 選單 / 離開</span>
@@ -241,7 +233,7 @@
         </div>
       </footer>
 
-      <!-- 💡 離開確認彈窗 (繼續遊戲 vs 離開遊戲) -->
+      <!-- 離開確認彈窗 -->
       <div id="exit-confirm-modal" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-[280px] rounded-2xl p-5 shadow-2xl text-center space-y-4">
           <div class="text-3xl">⚠️</div>
@@ -320,7 +312,6 @@
   </div>
 
   <script>
-    // 💡 離開選單按鈕控制邏輯
     function openExitConfirmModal() {
       const modal = document.getElementById("exit-confirm-modal");
       if (modal) modal.classList.remove("hidden");
@@ -332,24 +323,23 @@
     }
 
     function exitToLobby() {
-      // 重新載入網頁返回最初主大廳
       window.location.reload();
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=33 強制破除快取) -->
-  <script src="items_weapon.js?v=33"></script>
-  <script src="items_armor.js?v=33"></script>
-  <script src="items_material.js?v=33"></script>
-  <script src="items_food.js?v=33"></script>
-  <script src="recipes.js?v=33"></script>
-  <script src="maps.js?v=33"></script>
-  <script src="characters.js?v=33"></script>
-  <script src="game_config.js?v=33"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=36) -->
+  <script src="items_weapon.js?v=36"></script>
+  <script src="items_armor.js?v=36"></script>
+  <script src="items_material.js?v=36"></script>
+  <script src="items_food.js?v=36"></script>
+  <script src="recipes.js?v=36"></script>
+  <script src="maps.js?v=36"></script>
+  <script src="characters.js?v=36"></script>
+  <script src="game_config.js?v=36"></script>
   
-  <script src="lobby.js?v=33"></script>
-  <script src="ai.js?v=33"></script>
-  <script src="combat.js?v=33"></script>
-  <script src="main.js?v=33"></script>
+  <script src="lobby.js?v=36"></script>
+  <script src="ai.js?v=36"></script>
+  <script src="combat.js?v=36"></script>
+  <script src="main.js?v=36"></script>
 </body>
 </html>
