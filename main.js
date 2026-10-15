@@ -1,7 +1,98 @@
 /**
  * 【模組：核心管家 main.js】
- * v47：全面防堵 maps.js 中的 bubble_tea 與 rice_sausage 漏網之魚，保證 100% 中文顯示
+ * v48：
+ * 1. 集中式 ItemRegistry (安全註冊、別名、品級色)
+ * 2. 五階品級色 (白、綠、藍、黃、紅)
+ * 3. 追蹤目標地圖即時導航聯動 (缺料區域發光標記)
+ * 4. FPS 爆血暗角特效與打擊浮動跳字
  */
+
+// ==========================================
+// 💡 【1. 集中式道具管理系統 (ItemRegistry)】
+// ==========================================
+const ItemRegistry = {
+  // 品級色階設定 (1:白, 2:綠, 3:藍, 4:黃, 5:紅)
+  RARITY: {
+    1: { name: "普通", border: "border-slate-500", text: "text-slate-200", badge: "bg-slate-700 text-slate-300", glow: "" },
+    2: { name: "精良", border: "border-emerald-500", text: "text-emerald-400", badge: "bg-emerald-950 border border-emerald-500 text-emerald-300", glow: "shadow-sm shadow-emerald-900/40" },
+    3: { name: "稀有", border: "border-sky-500", text: "text-sky-400", badge: "bg-sky-950 border border-sky-500 text-sky-300", glow: "shadow-sm shadow-sky-900/40" },
+    4: { name: "史詩", border: "border-amber-400", text: "text-amber-300", badge: "bg-amber-950 border border-amber-400 text-amber-300", glow: "shadow-sm shadow-amber-900/40" },
+    5: { name: "傳說", border: "border-rose-500", text: "text-rose-400", badge: "bg-rose-950 border border-rose-500 text-rose-300", glow: "shadow-sm shadow-rose-900/50" }
+  },
+
+  // 別名映射表
+  ALIAS: {
+    bubble_tea: "milk_tea",
+    boba_milk_tea: "milk_tea",
+    rice_sausage: "sticky_rice_sausage",
+    lunch_box: "bento"
+  },
+
+  // 現有道具五階品級評定
+  RARITY_MAP: {
+    // ⚪ 白 (1階：基礎材料 / 粗糙素材)
+    plastic_chair: 1,
+    tape: 1,
+    battery: 1,
+    water_balloon: 1,
+    box_cutter: 1,
+    umbrella: 1,
+    laser_pointer: 1,
+    sausage: 1,
+    sticky_rice_sausage: 1,
+    bento: 1,
+
+    // 🟢 綠 (2階：一階過渡裝 / 經典台味美食)
+    reinforced_chair: 2,
+    megaphone: 2,
+    milk_tea: 2,
+    stinky_tofu: 2,
+    iron_sheet: 2,
+
+    // 🔵 藍 (3階：二階精良裝備 / 頂級夜市料理)
+    tw_hotdog: 3,
+    electro_megaphone: 3,
+    riot_shield: 3,
+
+    // 🟡 黃 (4階：高階戰術神裝)
+    thunder_roar_megaphone: 4,
+    power_armor: 4,
+
+    // 🔴 紅 (5階：終極破陣神物)
+    god_slayer_chair: 5
+  },
+
+  get(id) {
+    if (!id) return null;
+    const resolvedId = this.ALIAS[id] || id;
+
+    // 從 GAME_DATA 取
+    if (typeof GAME_DATA !== 'undefined' && GAME_DATA.items && GAME_DATA.items[resolvedId]) {
+      return GAME_DATA.items[resolvedId];
+    }
+
+    // 兜底專用資料
+    const fallbacks = {
+      milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
+      sticky_rice_sausage: { id: "sticky_rice_sausage", name: "糯米腸", type: "food", hp: 30, sp: 15, desc: "大腸包小腸的靈魂外皮，扎實飽足。" },
+      sausage: { id: "sausage", name: "烤香腸", type: "food", hp: 25, sp: 15, desc: "夜市路邊攤打香腸必備，蒜頭配著吃戰力翻倍。" },
+      stinky_tofu: { id: "stinky_tofu", name: "脆皮臭豆腐", type: "food", hp: 35, sp: 10, desc: "聞起來像垃圾桶，吃起來像天堂。搭配泡菜簡直是人間凶器。" },
+      tw_hotdog: { id: "tw_hotdog", name: "大腸包小腸", type: "food", hp: 60, sp: 30, desc: "炭烤香腸包入糯米腸，淋上甜辣醬與蒜片，台灣夜市霸主級美食！" },
+      bento: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" }
+    };
+
+    if (fallbacks[resolvedId]) return fallbacks[resolvedId];
+
+    return { id: resolvedId, name: resolvedId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
+  },
+
+  getRarity(id) {
+    const resolvedId = this.ALIAS[id] || id;
+    const level = this.RARITY_MAP[resolvedId] || 1;
+    return { level, ...this.RARITY[level] };
+  }
+};
+
 const DEV_CONFIG = {
   enableZoneClose: true,
   enableNPC: true
@@ -35,6 +126,28 @@ const state = {
   trackedItemId: null
 };
 
+// 💡 觸發 FPS 受擊外圈爆血特效
+function triggerPlayerBloodHitEffect() {
+  const overlay = document.getElementById("fps-blood-hit-overlay");
+  if (!overlay) return;
+  overlay.classList.add("hit-active");
+  setTimeout(() => {
+    overlay.classList.remove("hit-active");
+  }, 220);
+}
+
+// 💡 生成戰鬥浮動跳字
+function spawnFloatingDamage(containerEl, text, isCrit = false) {
+  if (!containerEl) return;
+  const tag = document.createElement("div");
+  tag.className = `floating-dmg-tag ${isCrit ? 'text-amber-300 text-lg font-black' : 'text-rose-400 text-sm font-bold'}`;
+  tag.textContent = text;
+  tag.style.left = `${Math.floor(Math.random() * 40) + 30}%`;
+  tag.style.top = `-10px`;
+  containerEl.appendChild(tag);
+  setTimeout(() => tag.remove(), 750);
+}
+
 function getSafeZones() {
   if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.zones && GAME_DATA.zones.length > 0) {
     return GAME_DATA.zones;
@@ -58,66 +171,18 @@ function getSafeRecipes() {
   return [];
 }
 
-// 萬能道具取得（內建全量中文翻譯字典）
 function getSafeItem(itemId) {
-  if (!itemId) return null;
-
-  // 1. 全域對應字典，優先對齊
-  const ALIAS_MAP = {
-    bubble_tea: "milk_tea",
-    boba_milk_tea: "milk_tea",
-    rice_sausage: "sticky_rice_sausage",
-    lunch_box: "bento"
-  };
-  const resolvedId = ALIAS_MAP[itemId] || itemId;
-
-  // 2. 從 GAME_DATA 讀取
-  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.items && GAME_DATA.items[resolvedId]) {
-    return GAME_DATA.items[resolvedId];
-  }
-
-  // 3. 從各模組讀取
-  const pools = [
-    typeof ITEMS_FOOD !== 'undefined' ? ITEMS_FOOD : null,
-    typeof window.ITEMS_FOOD !== 'undefined' ? window.ITEMS_FOOD : null,
-    typeof ITEMS_WEAPON !== 'undefined' ? ITEMS_WEAPON : null,
-    typeof ITEMS_ARMOR !== 'undefined' ? ITEMS_ARMOR : null,
-    typeof ITEMS_MATERIAL !== 'undefined' ? ITEMS_MATERIAL : null
-  ];
-
-  for (const p of pools) {
-    if (p && p[resolvedId]) return p[resolvedId];
-    if (p && p[itemId]) return p[itemId];
-  }
-
-  // 4. 強制兜底翻譯庫（100% 杜絕任何未定義英文）
-  const fallbackDict = {
-    milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
-    boba_milk_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
-    bubble_tea: { id: "milk_tea", name: "全糖大冰奶", type: "food", hp: 20, sp: 40, desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！" },
-    sticky_rice_sausage: { id: "sticky_rice_sausage", name: "糯米腸", type: "food", hp: 30, sp: 15, desc: "大腸包小腸的靈魂外皮，扎實飽足。" },
-    rice_sausage: { id: "sticky_rice_sausage", name: "糯米腸", type: "food", hp: 30, sp: 15, desc: "大腸包小腸的靈魂外皮，扎實飽足。" },
-    sausage: { id: "sausage", name: "烤香腸", type: "food", hp: 25, sp: 15, desc: "夜市路邊攤打香腸必備，蒜頭配著吃戰力翻倍。" },
-    stinky_tofu: { id: "stinky_tofu", name: "脆皮臭豆腐", type: "food", hp: 35, sp: 10, desc: "聞起來像垃圾桶，吃起來像天堂。搭配泡菜簡直是人間凶器。" },
-    tw_hotdog: { id: "tw_hotdog", name: "大腸包小腸", type: "food", hp: 60, sp: 30, desc: "炭烤香腸包入糯米腸，淋上甜辣醬與蒜片，台灣夜市霸主級美食！" },
-    bento: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" },
-    lunch_box: { id: "bento", name: "立院抗議便當", type: "food", hp: 35, sp: 20, desc: "抗議現場必領的雙主菜便當，吃飽了才有力氣繼續戰鬥！" }
-  };
-
-  if (fallbackDict[itemId]) return fallbackDict[itemId];
-  if (fallbackDict[resolvedId]) return fallbackDict[resolvedId];
-
-  return { id: itemId, name: itemId, type: "material", desc: "這是一件神祕的台灣生存物資。" };
+  return ItemRegistry.get(itemId);
 }
 
 function getItemDisplayName(itemId) {
-  const it = getSafeItem(itemId);
+  const it = ItemRegistry.get(itemId);
   return it ? it.name : (itemId || "空");
 }
 
 function getItemDropLocationName(itemId) {
   const zones = getSafeZones();
-  const targetItem = getSafeItem(itemId);
+  const targetItem = ItemRegistry.get(itemId);
   const targetId = targetItem ? targetItem.id : itemId;
 
   const found = zones.find(z => z.drops && (
@@ -129,6 +194,23 @@ function getItemDropLocationName(itemId) {
   ));
 
   return found ? found.name : "合成獲得";
+}
+
+// 💡 取得玩家當前追蹤所缺的所有材料 ID 清單
+function getMissingTrackedMaterials() {
+  if (!state.trackedItemId || !state.player) return [];
+  const recipes = getSafeRecipes();
+  const recipe = recipes.find(r => r.result === state.trackedItemId);
+  if (!recipe) return [];
+
+  const ownedIds = [...(state.player.bag || [])];
+  if (state.player.equip) {
+    Object.values(state.player.equip).forEach(it => {
+      if (it) ownedIds.push(it.id);
+    });
+  }
+
+  return recipe.materials.filter(mId => !ownedIds.includes(mId));
 }
 
 function getTotalAtk(unit) {
@@ -197,9 +279,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】支援隨時取消追蹤，全中文別名校正完成！", "text-emerald-400 font-bold");
+    addLog("【測試模式】五階品級色、地圖追蹤導航、FPS爆血受擊已啟用！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！所有物品皆可點擊追蹤產地與合成！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！所有物品皆具備五階品級色！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -245,6 +327,7 @@ function startGameLoop() {
               
               if (state.player.zone === open[0].id) {
                 state.player.hp = Math.max(1, state.player.hp - 25);
+                triggerPlayerBloodHitEffect();
                 addLog(`你滯留在禁區內，遭到驅離受到 25 點傷害！`, "text-rose-500 font-bold");
               }
               updateUI();
@@ -443,7 +526,7 @@ function setTrackedItem(itemId) {
   if (!item) return;
 
   state.trackedItemId = item.id;
-  addLog(`🎯 已鎖定追蹤：【${item.name}】！`, "text-amber-300 font-bold");
+  addLog(`🎯 已鎖定追蹤：【${item.name}】！地圖已標示材料產地！`, "text-amber-300 font-bold");
   closeCraftBookModal();
   closeItemInfoModal();
   updateUI();
@@ -459,9 +542,7 @@ function clearTrackedItem(e) {
 
 function renderTargetTracker() {
   const trackerBox = document.getElementById("target-tracker-box");
-  const nameEl = document.getElementById("tracker-target-name");
-  const listEl = document.getElementById("tracker-materials-list");
-  if (!trackerBox || !nameEl || !listEl) return;
+  if (!trackerBox) return;
 
   if (!state.trackedItemId) {
     trackerBox.classList.add("hidden");
@@ -474,6 +555,7 @@ function renderTargetTracker() {
     return;
   }
 
+  const rarity = ItemRegistry.getRarity(targetItem.id);
   trackerBox.classList.remove("hidden");
   
   trackerBox.innerHTML = `
@@ -482,7 +564,7 @@ function renderTargetTracker() {
         <span>🎯 目標追蹤</span>
       </span>
       <div class="flex items-center gap-1">
-        <span class="text-[11px] font-bold text-white truncate max-w-[75px]">${targetItem.name}</span>
+        <span class="text-[11px] font-bold ${rarity.text} truncate max-w-[85px]">${targetItem.name}</span>
         <button onclick="clearTrackedItem(event)" class="text-slate-400 hover:text-rose-400 text-xs px-1 font-mono transition" title="取消追蹤">✕</button>
       </div>
     </div>
@@ -506,6 +588,7 @@ function renderTargetTracker() {
       const isOwned = ownedIds.includes(mId);
       const mName = getItemDisplayName(mId);
       const loc = getItemDropLocationName(mId);
+      const mRarity = ItemRegistry.getRarity(mId);
 
       if (isOwned) {
         return `
@@ -517,8 +600,8 @@ function renderTargetTracker() {
       } else {
         return `
           <div class="flex justify-between items-center text-rose-300">
-            <span class="truncate max-w-[110px]">✖ ${mName}</span>
-            <span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[65px]">${loc}</span>
+            <span class="truncate max-w-[110px] ${mRarity.text}">✖ ${mName}</span>
+            <span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[65px] font-bold">⭐${loc}</span>
           </div>
         `;
       }
@@ -531,7 +614,7 @@ function renderTargetTracker() {
       <div class="space-y-0.5 pt-0.5">
         <div class="flex justify-between text-slate-300">
           <span>產地來源:</span>
-          <span class="text-amber-400 font-bold">${loc}</span>
+          <span class="text-amber-400 font-bold">⭐${loc}</span>
         </div>
         <div class="flex justify-between text-slate-300">
           <span>目前擁有:</span>
@@ -615,10 +698,13 @@ function renderCraftBookList() {
 
   listEl.innerHTML = recipes.map(r => {
     const resItem = getSafeItem(r.result) || { id: r.result, name: r.result, atk: 0, def: 0 };
+    const rarity = ItemRegistry.getRarity(resItem.id);
     
+    // 材料品級按鈕
     const matBadges = r.materials.map(mId => {
       const mName = getItemDisplayName(mId);
-      return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-indigo-300 rounded border border-slate-700 text-[10px] underline decoration-indigo-400/40">${mName}</button>`;
+      const mRarity = ItemRegistry.getRarity(mId);
+      return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
     }).join(`<span class="text-slate-500 font-bold">+</span>`);
 
     let statTag = "";
@@ -629,12 +715,13 @@ function renderCraftBookList() {
     const isTrackingThis = state.trackedItemId === r.result;
 
     return `
-      <div onclick="inspectItemById('${r.result}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border ${isTrackingThis ? 'border-amber-500 shadow-md shadow-amber-950/40' : 'border-slate-800'} rounded-xl p-3 flex justify-between items-center transition">
+      <div onclick="inspectItemById('${r.result}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border ${isTrackingThis ? 'border-amber-400 shadow-md shadow-amber-950/40' : rarity.border} rounded-xl p-3 flex justify-between items-center transition">
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-sm font-black text-white">${resItem.name}</span>
+            <span class="text-sm font-black ${rarity.text}">${resItem.name}</span>
+            <span class="text-[9px] px-1 py-0.2 rounded font-bold ${rarity.badge}">${rarity.name}</span>
             ${statTag}
-            ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold">追蹤中</span>' : ''}
+            ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold animate-pulse">追蹤中</span>' : ''}
           </div>
           <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5 flex-wrap">
             <span class="text-slate-500 font-mono text-[10px]">配方:</span>
@@ -677,11 +764,13 @@ function handleItemTouchMove(e) {
 
   if (!touchState.isDragging && (deltaX > 6 || deltaY > 6)) {
     touchState.isDragging = true;
-    const itemName = getItemDisplayName(state.player.bag[touchState.bagIndex]);
+    const item = getSafeItem(state.player.bag[touchState.bagIndex]);
+    const rarity = ItemRegistry.getRarity(item.id);
+
     const ghost = document.createElement("div");
     ghost.id = "touch-drag-ghost";
-    ghost.className = "fixed pointer-events-none z-[9999] px-3 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-2xl border-2 border-white scale-110 opacity-90 transition-transform";
-    ghost.textContent = itemName;
+    ghost.className = `fixed pointer-events-none z-[9999] px-3 py-1.5 bg-slate-900 ${rarity.text} border-2 ${rarity.border} font-black text-xs rounded-xl shadow-2xl scale-110 opacity-90 transition-transform`;
+    ghost.textContent = item.name;
     document.body.appendChild(ghost);
     touchState.ghostEl = ghost;
   }
@@ -824,8 +913,13 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   const descEl = document.getElementById("info-item-desc");
   const btnContainer = document.getElementById("info-buttons-container");
 
-  if (catEl) catEl.textContent = categoryText;
-  if (nameEl) nameEl.textContent = item.name;
+  const rarity = ItemRegistry.getRarity(item.id);
+
+  if (catEl) catEl.textContent = `${categoryText} • [${rarity.name}品質]`;
+  if (nameEl) {
+    nameEl.textContent = item.name;
+    nameEl.className = `text-base font-black ${rarity.text} mt-0.5`;
+  }
 
   let statStr = "";
   if (item.type === "food") {
@@ -859,7 +953,8 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   if (downstream) {
     const matBadges = downstream.materials.map(mId => {
       const mName = getItemDisplayName(mId);
-      return `<button onclick="inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-700 text-[10px] underline">${mName}</button>`;
+      const mRarity = ItemRegistry.getRarity(mId);
+      return `<button onclick="inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
     }).join(`<span class="text-slate-500 font-bold">+</span>`);
 
     treeHTML += `
@@ -876,9 +971,10 @@ function showItemInfoModal(item, categoryText, isFromBag) {
     const upstreamBadges = upstream.map(u => {
       const upName = u.resultItem ? u.resultItem.name : u.resultId;
       const isUpTracking = state.trackedItemId === u.resultId;
+      const upRarity = ItemRegistry.getRarity(u.resultId);
       return `
         <div class="flex justify-between items-center py-1 border-b border-slate-800/60 last:border-0">
-          <button onclick="inspectItemById('${u.resultId}')" class="text-indigo-300 hover:text-indigo-200 font-bold underline text-[11px] text-left truncate max-w-[170px]">
+          <button onclick="inspectItemById('${u.resultId}')" class="${upRarity.text} hover:opacity-80 font-bold underline text-[11px] text-left truncate max-w-[170px]">
             🔺 ${upName}
           </button>
           <button onclick="${isUpTracking ? "clearTrackedItem()" : `setTrackedItem('${u.resultId}')`}" class="px-2 py-0.5 ${isUpTracking ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 text-[10px] rounded border border-slate-700 font-bold transition">
@@ -967,18 +1063,19 @@ function renderEquipSixGrid(p) {
   if (!gridEl) return;
 
   const slots = [
-    { key: "weapon", label: "武器", item: p.equip?.weapon, svg: EQUIP_SLOT_SVGS.weapon, activeColor: "border-amber-500/80 bg-amber-950/40" },
-    { key: "head",   label: "頭部", item: p.equip?.head,   svg: EQUIP_SLOT_SVGS.head,   activeColor: "border-sky-500/80 bg-sky-950/40" },
-    { key: "chest",  label: "衣服", item: p.equip?.chest,  svg: EQUIP_SLOT_SVGS.chest,  activeColor: "border-emerald-500/80 bg-emerald-950/40" },
-    { key: "arm",    label: "手臂", item: p.equip?.arm,    svg: EQUIP_SLOT_SVGS.arm,    activeColor: "border-purple-500/80 bg-purple-950/40" },
-    { key: "leg",    label: "腿部", item: p.equip?.leg,    svg: EQUIP_SLOT_SVGS.leg,    activeColor: "border-indigo-500/80 bg-indigo-950/40" },
-    { key: "acc",    label: "飾品", item: p.equip?.acc,    svg: EQUIP_SLOT_SVGS.acc,    activeColor: "border-rose-500/80 bg-rose-950/40" }
+    { key: "weapon", label: "武器", item: p.equip?.weapon, svg: EQUIP_SLOT_SVGS.weapon },
+    { key: "head",   label: "頭部", item: p.equip?.head,   svg: EQUIP_SLOT_SVGS.head },
+    { key: "chest",  label: "衣服", item: p.equip?.chest,  svg: EQUIP_SLOT_SVGS.chest },
+    { key: "arm",    label: "手臂", item: p.equip?.arm,    svg: EQUIP_SLOT_SVGS.arm },
+    { key: "leg",    label: "腿部", item: p.equip?.leg,    svg: EQUIP_SLOT_SVGS.leg },
+    { key: "acc",    label: "飾品", item: p.equip?.acc,    svg: EQUIP_SLOT_SVGS.acc }
   ];
 
   gridEl.innerHTML = slots.map(s => {
     if (s.item) {
+      const rarity = ItemRegistry.getRarity(s.item.id);
       return `
-        <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border ${s.activeColor} flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
+        <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border-2 ${rarity.border} bg-slate-900/90 flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
           ${s.svg}
           <span class="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         </div>
@@ -992,12 +1089,24 @@ function renderEquipSixGrid(p) {
   }).join("");
 }
 
+// 💡 戰術地圖渲染（連動目標材料導航）
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
   if (!container || !state.player) return;
 
   const p = state.player;
   const zones = getSafeZones();
+  const missingMats = getMissingTrackedMaterials();
+
+  const hintEl = document.getElementById("map-target-hint");
+  if (hintEl) {
+    if (missingMats.length > 0) {
+      const targetItem = getSafeItem(state.trackedItemId);
+      hintEl.textContent = `🎯 正在尋找【${targetItem.name}】所需材料，黃框處即為掉落地！`;
+    } else {
+      hintEl.textContent = "全島自由移動 (-5 體力)";
+    }
+  }
 
   const buildNodeHTML = (zoneId) => {
     const z = zones.find(x => x.id === zoneId);
@@ -1005,6 +1114,12 @@ function renderTacticalMap() {
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
     const canMove = !isClosed && !isCurrent;
+
+    // 💡 判定此地是否包含缺少的材料
+    const hasNeededMaterial = !isClosed && missingMats.some(mId => {
+      const targetId = ItemRegistry.ALIAS[mId] || mId;
+      return z.drops && (z.drops.includes(mId) || z.drops.includes(targetId));
+    });
 
     let boxStyle = "bg-slate-900 border-slate-800 text-slate-500";
     let statusTag = "自由直達";
@@ -1015,15 +1130,22 @@ function renderTacticalMap() {
     } else if (isClosed) {
       boxStyle = "bg-rose-950 border-rose-800 text-rose-500 line-through opacity-60";
       statusTag = "禁區封鎖";
+    } else if (hasNeededMaterial) {
+      // 💡 導航高亮：金光閃閃
+      boxStyle = "bg-amber-950/90 border-2 border-amber-400 text-amber-200 cursor-pointer shadow-lg shadow-amber-950/60 animate-pulse";
+      statusTag = "⭐ 包含缺少的目標材料！";
     } else if (canMove) {
       boxStyle = "bg-emerald-950/90 hover:bg-emerald-900 border-emerald-500 text-emerald-200 cursor-pointer shadow-md";
       statusTag = "可前往 (-5體)";
     }
 
     return `
-      <button onclick="moveZone('${z.id}')" class="w-44 py-2 px-4 rounded-xl border-2 text-center transition active:scale-95 ${boxStyle}">
-        <div class="text-sm font-black tracking-wider">${z.name}</div>
-        <div class="text-[9px] mt-0.5 opacity-80">${statusTag}</div>
+      <button onclick="moveZone('${z.id}')" class="w-48 py-2 px-3 rounded-xl border-2 text-center transition active:scale-95 ${boxStyle}">
+        <div class="text-sm font-black tracking-wider flex items-center justify-center gap-1">
+          ${hasNeededMaterial ? '<span>⭐</span>' : ''}
+          <span>${z.name}</span>
+        </div>
+        <div class="text-[9px] mt-0.5 opacity-90 font-mono">${statusTag}</div>
       </button>
     `;
   };
@@ -1036,7 +1158,7 @@ function renderTacticalMap() {
       <div class="h-full w-0.5 bg-slate-600"></div>
       <div class="h-full w-0.5 bg-slate-600"></div>
     </div>
-    <div class="flex gap-4">
+    <div class="flex gap-3">
       ${buildNodeHTML("ly")}
       ${buildNodeHTML("hsinchu")}
     </div>
@@ -1066,13 +1188,22 @@ function updateUI() {
   renderEquipSixGrid(p);
   renderTargetTracker();
 
+  // 💡 移動按鈕上的小紅/黃光提示
+  const mapPing = document.getElementById("map-btn-ping");
+  if (mapPing) {
+    const missing = getMissingTrackedMaterials();
+    if (missing.length > 0) mapPing.classList.remove("hidden");
+    else mapPing.classList.add("hidden");
+  }
+
   const craftBox = document.getElementById("craft-alert-box");
   const availableRecipes = findAvailableRecipes(p);
   if (availableRecipes.length > 0 && craftBox) {
     craftBox.classList.remove("hidden");
     craftBox.innerHTML = availableRecipes.map(r => {
       const targetItem = getSafeItem(r.result);
-      return `<button onclick="craftItem(state.player, GAME_DATA.recipes.find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】</span><span>${r.desc}</span></button>`;
+      const rarity = ItemRegistry.getRarity(targetItem.id);
+      return `<button onclick="craftItem(state.player, GAME_DATA.recipes.find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】(${rarity.name})</span><span>${r.desc}</span></button>`;
     }).join("");
   } else if (craftBox) { 
     craftBox.classList.add("hidden"); 
@@ -1104,17 +1235,19 @@ function updateUI() {
     renderTacticalMap();
   }
 
+  // 背包 6 格 (套用五階品級色)
   const invGrid = document.getElementById("inventory-grid");
   if (invGrid) {
     invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
       if (p.bag && p.bag[i]) {
-        const itemName = getItemDisplayName(p.bag[i]);
+        const item = getSafeItem(p.bag[i]);
+        const rarity = ItemRegistry.getRarity(item.id);
         return `
           <div ontouchstart="handleItemTouchStart(event, ${i})"
                ontouchmove="handleItemTouchMove(event)"
                ontouchend="handleItemTouchEnd(event)"
-               class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none">
-            <div class="text-xs font-bold truncate text-slate-100">${itemName}</div>
+               class="bg-slate-800 hover:bg-slate-700 active:scale-95 border-2 ${rarity.border} rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none ${rarity.glow}">
+            <div class="text-xs font-bold truncate ${rarity.text}">${item.name}</div>
           </div>
         `;
       }
