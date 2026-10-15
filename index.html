@@ -27,6 +27,7 @@
       border-radius: 28px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
       overflow: hidden;
+      position: relative;
     }
 
     @media (min-width: 640px) {
@@ -66,11 +67,59 @@
       border-color: #f43f5e !important;
       background-color: rgba(244, 63, 94, 0.15) !important;
     }
+
+    /* 💡 打擊震動動畫 */
+    @keyframes combat-shake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-6px, 4px); }
+      40% { transform: translate(6px, -4px); }
+      60% { transform: translate(-4px, -2px); }
+      80% { transform: translate(4px, 2px); }
+    }
+    .animate-shake {
+      animation: combat-shake 0.28s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    /* 💡 浮動跳傷害數字 */
+    @keyframes float-damage {
+      0% { opacity: 0; transform: translateY(0) scale(0.6); }
+      20% { opacity: 1; transform: translateY(-8px) scale(1.3); }
+      75% { opacity: 1; transform: translateY(-26px) scale(1); }
+      100% { opacity: 0; transform: translateY(-42px) scale(0.85); }
+    }
+    .floating-dmg-tag {
+      position: absolute;
+      pointer-events: none;
+      font-weight: 900;
+      font-family: monospace;
+      animation: float-damage 0.75s ease-out forwards;
+      z-index: 9999;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+    }
+
+    /* 💡 FPS 被擊中暗角爆血特效 (Blood Vignette Overlay) */
+    #fps-blood-hit-overlay {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 75px 30px rgba(225, 29, 72, 0.85);
+      background: radial-gradient(circle, transparent 45%, rgba(159, 18, 57, 0.45) 90%);
+      opacity: 0;
+      transition: opacity 0.05s ease-in;
+      z-index: 900;
+    }
+    #fps-blood-hit-overlay.hit-active {
+      opacity: 1;
+      transition: opacity 0.04s ease-out;
+    }
   </style>
 </head>
 <body class="text-slate-100 flex items-center justify-center p-0">
 
   <div class="iphone-device-frame bg-slate-900 flex flex-col justify-between border border-slate-800 relative">
+
+    <!-- 💡 FPS 被擊中暗角紅圈特效層 -->
+    <div id="fps-blood-hit-overlay"></div>
 
     <!-- 1. 遊戲主大廳畫面 -->
     <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-5 text-center pt-8 pb-6">
@@ -82,9 +131,9 @@
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-left text-xs text-slate-300 space-y-1.5 mb-2">
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
-          <p>1. 搜刮同區域有 60% 機率遭遇敵人或 40% 獲得物資。</p>
-          <p>2. 點擊底部左側「📖 合成表」可隨時查閱並追蹤目標裝備。</p>
-          <p>3. 點擊任何道具皆可查看上下位合成樹與產地追蹤。</p>
+          <p>1. 裝備分成五大品級：⚪白 🟢綠 🔵藍 🟡黃 🔴紅。</p>
+          <p>2. 追蹤目標後，打開「地圖」會直接發光導航目標材料！</p>
+          <p>3. 遭受攻擊時會觸發 FPS 爆血受傷震懾特效！</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -97,7 +146,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.47 • Chinese Alias Refined
+        MVP v0.48 • 5 Rarity & Tactical Nav
       </div>
     </div>
 
@@ -123,25 +172,17 @@
               <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
             </div>
 
-            <button onclick="event.stopPropagation(); openMapModal();" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
+            <button id="main-map-btn" onclick="event.stopPropagation(); openMapModal();" class="relative px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
               <span class="text-xs font-black text-amber-400">移動</span>
               <span class="text-[8px] text-slate-400">地圖</span>
+              <span id="map-btn-ping" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping"></span>
             </button>
           </div>
 
           <!-- 綠色框區域：半透明目標材料追蹤面板 (預設隱藏，點擊追蹤後出現) -->
           <div class="relative py-1 flex items-start">
-            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-48 bg-slate-950/60 hover:bg-slate-950/80 backdrop-blur-[2px] border border-amber-500/40 rounded-xl p-2 shadow-lg transition text-left cursor-pointer">
-              <div class="flex justify-between items-center border-b border-slate-700/50 pb-1 mb-1">
-                <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
-                  <span>🎯 目標追蹤</span>
-                </span>
-                <div class="flex items-center gap-1">
-                  <span id="tracker-target-name" class="text-[11px] font-bold text-white truncate max-w-[75px]">目標物品</span>
-                  <button onclick="clearTrackedItem(event)" class="text-slate-400 hover:text-rose-400 text-xs px-1 font-mono transition" title="取消追蹤">✕</button>
-                </div>
-              </div>
-              <div id="tracker-materials-list" class="space-y-0.5 text-[10px] font-mono text-slate-300"></div>
+            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-52 bg-slate-950/70 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer">
+              <!-- JS 動態生成 -->
             </div>
           </div>
 
@@ -165,7 +206,7 @@
         </div>
 
         <!-- 遭遇交鋒面板 -->
-        <div id="combat-panel" class="hidden bg-rose-950/60 border-2 border-rose-600 rounded-xl p-3 space-y-2.5">
+        <div id="combat-panel" class="hidden bg-rose-950/70 border-2 border-rose-600 rounded-xl p-3 space-y-2.5 relative">
           <div class="flex justify-between items-center border-b border-rose-800/80 pb-1.5">
             <div>
               <span class="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide animate-pulse">! 遭遇對手 !</span>
@@ -178,8 +219,8 @@
             </div>
           </div>
 
-          <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-            <div id="enemy-hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
+          <div id="enemy-hp-container" class="relative w-full bg-slate-800 h-2.5 rounded-full overflow-visible">
+            <div id="enemy-hp-bar" class="bg-rose-500 h-full rounded-full bar-transition" style="width: 100%"></div>
           </div>
 
           <div class="grid grid-cols-3 gap-2 pt-1">
@@ -200,7 +241,7 @@
              ondragover="handleDragOverRed(event)" 
              ondragleave="handleDragLeaveRed(event)" 
              ondrop="handleDropToRed(event)" 
-             class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
+             class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition relative">
           
           <div class="w-2/3 bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
             <div>
@@ -214,8 +255,8 @@
                   <span class="text-rose-400 font-bold">HP</span>
                   <span id="hp-text" class="font-mono text-slate-300 text-[11px]">120/120</span>
                 </div>
-                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div id="hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
+                <div id="player-hp-container" class="relative w-full bg-slate-800 h-2 rounded-full overflow-visible">
+                  <div id="hp-bar" class="bg-rose-500 h-full rounded-full bar-transition" style="width: 100%"></div>
                 </div>
               </div>
 
@@ -258,7 +299,7 @@
             <h3 class="text-base font-black text-white flex items-center gap-1.5">
               <span>📖 生存合成圖鑑</span>
             </h3>
-            <p class="text-[10px] text-slate-400">點擊「🎯 追蹤」將物品鎖定至主畫面追蹤框</p>
+            <p class="text-[10px] text-slate-400">品級：⚪白 🟢綠 🔵藍 🟡黃 🔴紅</p>
           </div>
           <button onclick="closeCraftBookModal()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
@@ -323,23 +364,24 @@
         </div>
       </div>
 
-      <!-- 地圖覆蓋層 -->
+      <!-- 地圖覆蓋層 (具備目標素材發光標記) -->
       <div id="map-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-40 flex flex-col justify-between p-5 pt-8 pb-6">
         <div class="flex justify-between items-center border-b border-slate-800 pb-3">
           <div>
             <h3 class="text-lg font-black text-white">戰術移動地圖</h3>
-            <p class="text-xs text-slate-400">全島自由移動 (-5 體力)</p>
+            <p id="map-target-hint" class="text-xs text-amber-400 font-bold">全島自由移動 (-5 體力)</p>
           </div>
           <button onclick="closeMapModal()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
           </button>
         </div>
 
-        <div id="map-nodes-container" class="my-auto py-4 flex flex-col items-center justify-center space-y-2"></div>
+        <div id="map-nodes-container" class="my-auto py-3 flex flex-col items-center justify-center space-y-2"></div>
 
         <div class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-400 space-y-1">
           <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-indigo-600 inline-block"></span> <span>藍色：目前所在區域</span></div>
-          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-900 border border-emerald-500 inline-block"></span> <span>綠框：可前往區域 (點擊前往)</span></div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-amber-500 border border-amber-300 inline-block"></span> <span class="text-amber-300 font-bold">黃框 ⭐：包含追蹤所缺材料！</span></div>
+          <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-emerald-900 border border-emerald-500 inline-block"></span> <span>綠框：安全可前往區域 (-5體)</span></div>
         </div>
       </div>
 
@@ -373,19 +415,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (全面升級為 ?v=47 強制更新瀏覽器快取) -->
-  <script src="items_weapon.js?v=47"></script>
-  <script src="items_armor.js?v=47"></script>
-  <script src="items_material.js?v=47"></script>
-  <script src="items_food.js?v=47"></script>
-  <script src="recipes.js?v=47"></script>
-  <script src="maps.js?v=47"></script>
-  <script src="characters.js?v=47"></script>
-  <script src="game_config.js?v=47"></script>
+  <!-- 🔗 模組引入清單 (升級至 ?v=48) -->
+  <script src="items_weapon.js?v=48"></script>
+  <script src="items_armor.js?v=48"></script>
+  <script src="items_material.js?v=48"></script>
+  <script src="items_food.js?v=48"></script>
+  <script src="recipes.js?v=48"></script>
+  <script src="maps.js?v=48"></script>
+  <script src="characters.js?v=48"></script>
+  <script src="game_config.js?v=48"></script>
   
-  <script src="lobby.js?v=47"></script>
-  <script src="ai.js?v=47"></script>
-  <script src="combat.js?v=47"></script>
-  <script src="main.js?v=47"></script>
+  <script src="lobby.js?v=48"></script>
+  <script src="ai.js?v=48"></script>
+  <script src="combat.js?v=48"></script>
+  <script src="main.js?v=48"></script>
 </body>
 </html>
