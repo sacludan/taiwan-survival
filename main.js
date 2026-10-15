@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v38：探索機率調整為對等機制——同區域內 60% 機率找到對手、40% 找到材料
+ * v39：整合合成圖鑑渲染、道具中文兜底解析、移除背包標題列優化排版
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -26,6 +26,16 @@ const state = {
   player: null,
   ai: null
 };
+
+// 安全獲取物品中文名稱，避免出現英文 ID
+function getItemDisplayName(itemId) {
+  if (!itemId) return "空";
+  const item = GAME_DATA.items[itemId];
+  if (item && item.name) return item.name;
+  if (itemId === "boba_milk_tea" || itemId === "milk_tea") return "全糖大冰奶";
+  if (itemId === "sausage") return "烤香腸";
+  return itemId;
+}
 
 function getTotalAtk(unit) {
   if (!unit) return 0;
@@ -74,13 +84,14 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】遭遇機率已更新：同區域 60% 找人、40% 材料！", "text-emerald-400 font-bold");
+    addLog("【測試模式】黑倖式探索：同區域 60% 找人、40% 材料！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！同區域 60% 遭遇對手、40% 材料！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！左下角可隨時查閱合成表！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
   closeItemInfoModal();
+  closeCraftBookModal();
   updateUI();
   startGameLoop();
 }
@@ -135,7 +146,6 @@ function startGameLoop() {
         }
       }
 
-      // NPC 在背景遊蕩與行動
       if (DEV_CONFIG.enableNPC && state.timeSec % 4 === 0) {
         runAIBrain();
       }
@@ -198,7 +208,6 @@ function craftItem(unit, recipe, isPlayer = true) {
   updateUI();
 }
 
-// 搜刮讀條邏輯
 function triggerSearch() {
   if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
@@ -241,18 +250,17 @@ function triggerSearch() {
   }, 100);
 }
 
-// 💡 結算機率：同區域 60% 找人、40% 材料
 function executeSearchFinish() {
   const p = state.player;
   const currentZoneObj = GAME_DATA.zones.find(z => z.id === p.zone);
 
-  // 💡 同區域且對手存活：60% 機率找到對手
+  // 同區域 60% 機率遭遇對手
   if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.60) {
     startCombat();
     return;
   }
 
-  // 💡 40% 機率（或同區域沒人）：獲得材料物資
+  // 40% 機率獲得材料物資
   const dropId = currentZoneObj.drops[Math.floor(Math.random() * currentZoneObj.drops.length)];
   const item = GAME_DATA.items[dropId];
   const slot = item.type;
@@ -320,6 +328,86 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
+// 💡 【合成圖鑑系統 (Craft Book)】
+// ==========================================
+let currentCraftTab = 'all';
+
+function openCraftBookModal() {
+  const modal = document.getElementById("craft-book-modal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    filterCraftBook('all');
+  }
+}
+
+function closeCraftBookModal() {
+  const modal = document.getElementById("craft-book-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
+function filterCraftBook(tab) {
+  currentCraftTab = tab;
+  ['all', 'weapon', 'armor', 'food'].forEach(t => {
+    const btn = document.getElementById(`craft-tab-${t}`);
+    if (btn) {
+      if (t === tab) {
+        btn.className = "flex-1 py-1.5 rounded-lg bg-indigo-600 text-white font-bold transition";
+      } else {
+        btn.className = "flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400 font-bold transition";
+      }
+    }
+  });
+
+  renderCraftBookList();
+}
+
+function renderCraftBookList() {
+  const listEl = document.getElementById("craft-recipes-list");
+  if (!listEl || !GAME_DATA || !GAME_DATA.recipes) return;
+
+  let recipes = GAME_DATA.recipes;
+
+  if (currentCraftTab !== 'all') {
+    recipes = recipes.filter(r => {
+      const resItem = GAME_DATA.items[r.result];
+      if (!resItem) return false;
+      if (currentCraftTab === 'weapon') return resItem.type === 'weapon';
+      if (currentCraftTab === 'armor') return ['head', 'chest', 'arm', 'leg', 'acc'].includes(resItem.type);
+      if (currentCraftTab === 'food') return resItem.type === 'food';
+      return true;
+    });
+  }
+
+  listEl.innerHTML = recipes.map(r => {
+    const resItem = GAME_DATA.items[r.result] || { name: r.result, atk: 0, def: 0 };
+    const matNames = r.materials.map(mId => getItemDisplayName(mId)).join(" + ");
+
+    let statTag = "";
+    if (resItem.atk) statTag = `<span class="text-amber-400 font-bold font-mono">+${resItem.atk} 攻</span>`;
+    else if (resItem.def) statTag = `<span class="text-sky-400 font-bold font-mono">+${resItem.def} 防</span>`;
+    else if (resItem.hp) statTag = `<span class="text-emerald-400 font-bold font-mono">+${resItem.hp} HP</span>`;
+
+    return `
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center shadow-sm">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-black text-white">${resItem.name}</span>
+            ${statTag}
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+            <span class="text-slate-500 font-mono">配方:</span>
+            <span class="text-indigo-300 font-semibold">${matNames}</span>
+          </div>
+        </div>
+        <button onclick="alert('已鎖定【${resItem.name}】為合成導航目標！')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold text-amber-400 transition">
+          🎯 追蹤
+        </button>
+      </div>
+    `;
+  }).join("");
+}
+
+// ==========================================
 // 【觸控拖曳系統 (0 延遲)】
 // ==========================================
 let touchState = {
@@ -349,11 +437,11 @@ function handleItemTouchMove(e) {
 
   if (!touchState.isDragging && (deltaX > 6 || deltaY > 6)) {
     touchState.isDragging = true;
-    const item = GAME_DATA.items[state.player.bag[touchState.bagIndex]];
+    const itemName = getItemDisplayName(state.player.bag[touchState.bagIndex]);
     const ghost = document.createElement("div");
     ghost.id = "touch-drag-ghost";
     ghost.className = "fixed pointer-events-none z-[9999] px-3 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-2xl border-2 border-white scale-110 opacity-90 transition-transform";
-    ghost.textContent = item ? item.name : "物品";
+    ghost.textContent = itemName;
     document.body.appendChild(ghost);
     touchState.ghostEl = ghost;
   }
@@ -409,8 +497,7 @@ function handleItemTouchEnd(e) {
 function applyItemDropToYellow(bagIdx) {
   if (bagIdx === null || !state.player) return;
   const p = state.player;
-  const item = GAME_DATA.items[p.bag[bagIdx]];
-  const itemName = item ? item.name : p.bag[bagIdx];
+  const itemName = getItemDisplayName(p.bag[bagIdx]);
 
   p.bag.splice(bagIdx, 1);
   addLog(`丟棄了【${itemName}】。`, "text-slate-500");
@@ -702,7 +789,7 @@ function updateUI() {
 
     const zoneDrops = document.getElementById("zone-drops");
     if (zoneDrops && zObj) {
-      zoneDrops.textContent = `可搜刮：${zObj.drops.map(id => GAME_DATA.items[id] ? GAME_DATA.items[id].name : id).join("、")}`;
+      zoneDrops.textContent = `可搜刮：${zObj.drops.map(id => getItemDisplayName(id)).join("、")}`;
     }
   }
 
@@ -711,15 +798,12 @@ function updateUI() {
     renderTacticalMap();
   }
 
-  const bagCount = document.getElementById("bag-count");
-  if (bagCount) bagCount.textContent = `${p.bag.length} / 6`;
-
+  // 背包 6 格精確中文渲染
   const invGrid = document.getElementById("inventory-grid");
   if (invGrid) {
     invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
       if (p.bag[i]) {
-        const it = GAME_DATA.items[p.bag[i]];
-        const itemName = it ? it.name : p.bag[i];
+        const itemName = getItemDisplayName(p.bag[i]);
         return `
           <div ontouchstart="handleItemTouchStart(event, ${i})"
                ontouchmove="handleItemTouchMove(event)"
