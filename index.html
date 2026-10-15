@@ -83,8 +83,8 @@
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-left text-xs text-slate-300 space-y-1.5 mb-2">
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
           <p>1. 搜刮同區域有 60% 機率遭遇敵人或 40% 獲得物資。</p>
-          <p>2. 點擊底部左側「📖 合成表」可隨時查閱所有裝備與合成路線。</p>
-          <p>3. 道具直接拖曳至角色區裝備/食用，拖曳至上方探索區丟棄。</p>
+          <p>2. 點擊底部左側「📖 合成表」可隨時查閱並追蹤目標裝備。</p>
+          <p>3. 探索區左側透明小框即時顯示目標素材收集進度！</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -97,7 +97,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.39 • UI Refined
+        MVP v0.40 • Target Tracker Integrated
       </div>
     </div>
 
@@ -115,6 +115,7 @@
              ondrop="handleDropToYellow(event)" 
              class="flex-1 flex flex-col justify-between bg-slate-800/40 hover:bg-slate-800/70 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3 relative transition cursor-pointer select-none">
           
+          <!-- 上方標題與移動按鈕 -->
           <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5">
             <div>
               <div class="text-[9px] text-slate-400 font-mono">CURRENT LOCATION</div>
@@ -128,6 +129,23 @@
             </button>
           </div>
 
+          <!-- 💡 綠色框區域：半透明背景目標材料追蹤面板 -->
+          <div class="relative py-1 flex items-start">
+            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="w-48 bg-slate-950/60 hover:bg-slate-950/80 backdrop-blur-[2px] border border-amber-500/40 rounded-xl p-2 shadow-lg transition text-left cursor-pointer">
+              <div class="flex justify-between items-center border-b border-slate-700/50 pb-1 mb-1">
+                <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
+                  <span>🎯 目標追蹤</span>
+                </span>
+                <span id="tracker-target-name" class="text-[11px] font-bold text-white truncate max-w-[85px]">強化折凳</span>
+              </div>
+              <!-- 動態素材清單 -->
+              <div id="tracker-materials-list" class="space-y-0.5 text-[10px] font-mono text-slate-300">
+                <!-- 由 JS 動態生成 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 中央：搜刮中提示與進度條 -->
           <div class="my-auto py-1 text-center space-y-1">
             <div id="search-prompt-text" class="text-amber-300 font-black text-sm tracking-wider hidden animate-pulse">
               🔍 搜刮中...
@@ -137,6 +155,7 @@
             </div>
           </div>
 
+          <!-- 下方：戰況日誌 -->
           <div class="pt-1.5 border-t border-slate-700/40">
             <div class="h-[60px] overflow-y-auto space-y-0.5 text-[11px] font-mono text-slate-300 pr-1 custom-scrollbar">
               <div id="game-log" class="space-y-0.5"></div>
@@ -217,40 +236,35 @@
         </div>
       </main>
 
-      <!-- 💡 底部區域：已刪除「隨身背包」與「3/6」標題列，背包往上移，底部放置對稱功能鍵 -->
+      <!-- 底部隨身背包與對稱按鈕列 -->
       <footer class="px-3 pt-2 pb-2.5 bg-slate-950 border-t border-slate-800 flex flex-col gap-2">
-        <!-- 6格隨身背包 (直接頂到最上方) -->
         <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[52px]"></div>
 
-        <!-- 💡 底部對稱按鈕列：左側合成表 vs 右側選單離開 -->
         <div class="flex justify-between items-center px-1">
-          <!-- 左側：合成表按鈕 -->
           <button onclick="openCraftBookModal()" class="px-3.5 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/70 active:scale-95 rounded-lg text-xs font-black text-indigo-300 shadow transition flex items-center gap-1.5">
             <span>📖 合成表</span>
           </button>
 
-          <!-- 右側：選單/離開按鈕 -->
           <button onclick="openExitConfirmModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700/80 rounded-lg text-xs font-bold text-slate-300 shadow transition flex items-center gap-1.5">
             <span>⚙️ 選單 / 離開</span>
           </button>
         </div>
       </footer>
 
-      <!-- 💡 全新【合成圖鑑總表彈窗 (Craft Book Modal)】 -->
+      <!-- 合成圖鑑總表彈窗 -->
       <div id="craft-book-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex flex-col justify-between p-4 pt-6 pb-5">
         <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
           <div>
             <h3 class="text-base font-black text-white flex items-center gap-1.5">
               <span>📖 生存合成圖鑑</span>
             </h3>
-            <p class="text-[10px] text-slate-400">點擊物品查看所需配方</p>
+            <p class="text-[10px] text-slate-400">點擊「🎯 追蹤」將裝備鎖定至主畫面追蹤框</p>
           </div>
           <button onclick="closeCraftBookModal()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
           </button>
         </div>
 
-        <!-- 分類頁籤 -->
         <div class="flex gap-2 py-2 border-b border-slate-800/80 text-xs font-bold">
           <button id="craft-tab-all" onclick="filterCraftBook('all')" class="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white">全部</button>
           <button id="craft-tab-weapon" onclick="filterCraftBook('weapon')" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400">武器</button>
@@ -258,7 +272,6 @@
           <button id="craft-tab-food" onclick="filterCraftBook('food')" class="flex-1 py-1.5 rounded-lg bg-slate-800 text-slate-400">食物</button>
         </div>
 
-        <!-- 配方清單容器 (滾動區) -->
         <div id="craft-recipes-list" class="flex-1 overflow-y-auto space-y-2 py-2 pr-1 custom-scrollbar"></div>
 
         <div class="text-[10px] text-slate-500 text-center pt-1 border-t border-slate-800">
@@ -360,19 +373,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=39) -->
-  <script src="items_weapon.js?v=39"></script>
-  <script src="items_armor.js?v=39"></script>
-  <script src="items_material.js?v=39"></script>
-  <script src="items_food.js?v=39"></script>
-  <script src="recipes.js?v=39"></script>
-  <script src="maps.js?v=39"></script>
-  <script src="characters.js?v=39"></script>
-  <script src="game_config.js?v=39"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=40) -->
+  <script src="items_weapon.js?v=40"></script>
+  <script src="items_armor.js?v=40"></script>
+  <script src="items_material.js?v=40"></script>
+  <script src="items_food.js?v=40"></script>
+  <script src="recipes.js?v=40"></script>
+  <script src="maps.js?v=40"></script>
+  <script src="characters.js?v=40"></script>
+  <script src="game_config.js?v=40"></script>
   
-  <script src="lobby.js?v=39"></script>
-  <script src="ai.js?v=39"></script>
-  <script src="combat.js?v=39"></script>
-  <script src="main.js?v=39"></script>
+  <script src="lobby.js?v=40"></script>
+  <script src="ai.js?v=40"></script>
+  <script src="combat.js?v=40"></script>
+  <script src="main.js?v=40"></script>
 </body>
 </html>
