@@ -1,8 +1,11 @@
 /**
  * 【模組：核心管家 main.js】
- * v56：
- * 1. 縮圈單輪時長由 120 秒改為 90 秒（1 分半），整局由 18 分鐘壓縮至 13.5 分鐘
- * 2. 撤離警報改為最後 20 秒觸發
+ * v57：
+ * 1. 移除裝備欄位右下角黃色小點點，介面極簡乾淨
+ * 2. 縮圈單輪時長為 90 秒（1 分半），9 輪總長 13.5 分鐘
+ * 3. 倒數 20 秒觸發緊急撤離警報與黃光呼吸特效
+ * 4. 前 5 輪禁區輪替大風吹，第 6 輪永久封閉收束至決賽
+ * 5. 全物資圖鑑（五階品級分類）支援
  */
 
 const ItemRegistry = {
@@ -122,7 +125,7 @@ const EQUIP_SLOT_SVGS = {
   acc:    `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="14" r="6"/><path d="M9 5l3-2 3 2-3 3-3-3z"/></svg>`
 };
 
-// 💡 單輪改為 90 秒（1 分半），9 輪總時長 13 分 30 秒
+// 💡 單輪 90 秒（1 分半），9 輪總時長 13 分 30 秒
 const BS_ZONE_ROUNDS = [
   { round: 1, duration: 90, warnCount: 4, isPermanent: false, name: "第 1 輪 (白天)" },
   { round: 2, duration: 90, warnCount: 4, isPermanent: false, name: "第 2 輪 (白天)" },
@@ -388,7 +391,6 @@ function startGameLoop() {
       if (DEV_CONFIG.enableZoneClose) {
         state.roundTimeRemain--;
 
-        // 💡 倒數 20 秒撤離警報
         if (state.roundTimeRemain === 20) {
           const warnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
           addLog(`⏰ 【倒數 20 秒】禁區即將封鎖！請位於 ${warnNames} 的生還者立刻撤離！`, "text-amber-300 font-black");
@@ -1167,6 +1169,7 @@ function modalActionUnequip() {
   updateUI();
 }
 
+// 💡 【核心修正】：徹底拿掉 span 黃色點點，只留純粹圖標與外框
 function renderEquipSixGrid(p) {
   const gridEl = document.getElementById("equip-six-grid");
   if (!gridEl) return;
@@ -1188,7 +1191,6 @@ function renderEquipSixGrid(p) {
           <div class="${rarity.iconColor}">
             ${s.svg}
           </div>
-          <span class="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         </div>
       `;
     }
