@@ -68,7 +68,6 @@
       background-color: rgba(244, 63, 94, 0.15) !important;
     }
 
-    /* 💡 打擊震動動畫 */
     @keyframes combat-shake {
       0%, 100% { transform: translate(0, 0); }
       20% { transform: translate(-6px, 4px); }
@@ -80,7 +79,6 @@
       animation: combat-shake 0.28s cubic-bezier(.36,.07,.19,.97) both;
     }
 
-    /* 💡 浮動跳傷害數字 */
     @keyframes float-damage {
       0% { opacity: 0; transform: translateY(0) scale(0.6); }
       20% { opacity: 1; transform: translateY(-8px) scale(1.3); }
@@ -97,7 +95,6 @@
       text-shadow: 0 2px 8px rgba(0,0,0,0.9);
     }
 
-    /* 💡 FPS 被擊中暗角爆血特效 (Blood Vignette Overlay) */
     #fps-blood-hit-overlay {
       pointer-events: none;
       position: absolute;
@@ -118,7 +115,6 @@
 
   <div class="iphone-device-frame bg-slate-900 flex flex-col justify-between border border-slate-800 relative">
 
-    <!-- 💡 FPS 被擊中暗角紅圈特效層 -->
     <div id="fps-blood-hit-overlay"></div>
 
     <!-- 1. 遊戲主大廳畫面 -->
@@ -131,9 +127,9 @@
       <div class="space-y-3 my-auto">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 text-left text-xs text-slate-300 space-y-1.5 mb-2">
           <div class="font-bold text-amber-400 mb-1">黑倖式操作指南：</div>
-          <p>1. 裝備分成五大品級：⚪白 🟢綠 🔵藍 🟡黃 🔴紅。</p>
+          <p>1. 搜到人單向攻擊，打完一拳立即回歸搜刮！</p>
           <p>2. 追蹤目標後，打開「地圖」會直接發光導航目標材料！</p>
-          <p>3. 遭受攻擊時會觸發 FPS 爆血受傷震懾特效！</p>
+          <p>3. 遭受突襲時會觸發 FPS 爆血受傷震懾特效！</p>
         </div>
 
         <button onclick="LobbyManager.startGame(false)" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-lg shadow-lg transition">
@@ -146,7 +142,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.48 • 5 Rarity & Tactical Nav
+        MVP v0.50 • Pure Single Strike
       </div>
     </div>
 
@@ -164,7 +160,6 @@
              ondrop="handleDropToYellow(event)" 
              class="flex-1 flex flex-col justify-between bg-slate-800/40 hover:bg-slate-800/70 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3 relative transition cursor-pointer select-none">
           
-          <!-- 上方標題與移動按鈕 -->
           <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5">
             <div>
               <div class="text-[9px] text-slate-400 font-mono">CURRENT LOCATION</div>
@@ -179,10 +174,9 @@
             </button>
           </div>
 
-          <!-- 綠色框區域：半透明目標材料追蹤面板 (預設隱藏，點擊追蹤後出現) -->
+          <!-- 綠色框區域：目標材料追蹤面板 -->
           <div class="relative py-1 flex items-start">
             <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-52 bg-slate-950/70 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer">
-              <!-- JS 動態生成 -->
             </div>
           </div>
 
@@ -214,7 +208,7 @@
               <p id="enemy-stats" class="text-[11px] text-rose-200">攻擊 14 | 防禦 8</p>
             </div>
             <div class="text-right">
-              <span class="text-[10px] text-amber-300 font-bold block">選擇本次交鋒行動</span>
+              <span class="text-[10px] text-amber-300 font-bold block">發動一次單向突襲！</span>
               <span id="enemy-hp-text" class="text-xs font-mono text-rose-300 font-bold">HP: 130/130</span>
             </div>
           </div>
@@ -364,7 +358,7 @@
         </div>
       </div>
 
-      <!-- 地圖覆蓋層 (具備目標素材發光標記) -->
+      <!-- 地圖覆蓋層 -->
       <div id="map-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-40 flex flex-col justify-between p-5 pt-8 pb-6">
         <div class="flex justify-between items-center border-b border-slate-800 pb-3">
           <div>
@@ -415,19 +409,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (升級至 ?v=48) -->
-  <script src="items_weapon.js?v=48"></script>
-  <script src="items_armor.js?v=48"></script>
-  <script src="items_material.js?v=48"></script>
-  <script src="items_food.js?v=48"></script>
-  <script src="recipes.js?v=48"></script>
-  <script src="maps.js?v=48"></script>
-  <script src="characters.js?v=48"></script>
-  <script src="game_config.js?v=48"></script>
+  <!-- 🔗 模組引入清單 (全面統一為 ?v=50 強制清除手機快取) -->
+  <script src="items_weapon.js?v=50"></script>
+  <script src="items_armor.js?v=50"></script>
+  <script src="items_material.js?v=50"></script>
+  <script src="items_food.js?v=50"></script>
+  <script src="recipes.js?v=50"></script>
+  <script src="maps.js?v=50"></script>
+  <script src="characters.js?v=50"></script>
+  <script src="game_config.js?v=50"></script>
   
-  <script src="lobby.js?v=48"></script>
-  <script src="ai.js?v=48"></script>
-  <script src="combat.js?v=48"></script>
-  <script src="main.js?v=48"></script>
+  <script src="lobby.js?v=50"></script>
+  <script src="ai.js?v=50"></script>
+  <script src="combat.js?v=50"></script>
+  <script src="main.js?v=50"></script>
 </body>
 </html>
