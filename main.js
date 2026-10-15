@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 零滑動全螢幕貼合版，支援超靈敏拖曳與全島自由移動
+ * v34：全面重構手機觸控系統，消除 iPhone 0.5 秒長按延遲，實現 0 延遲極致絲滑拖曳
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -50,7 +50,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】全螢幕無滑動版，拖曳極速靈敏！", "text-emerald-400 font-bold");
+    addLog("【測試模式】觸控拖曳已升級：0 毫秒極速反應、絲滑跟手！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！", "text-amber-300 font-bold");
   }
@@ -69,20 +69,6 @@ function startGameLoop() {
   gameInterval = setInterval(() => {
     if (state.gameOver || !state.player) return;
     tickCount++;
-
-    if (state.inCombat) {
-      state.clashProgress += 4;
-      const remainSec = Math.max(0, (2.5 - (state.clashProgress / 100) * 2.5)).toFixed(1);
-      const clashBar = document.getElementById("clash-bar");
-      const clashTimerText = document.getElementById("clash-timer-text");
-      if (clashBar) clashBar.style.width = `${state.clashProgress}%`;
-      if (clashTimerText) clashTimerText.textContent = `${remainSec}s`;
-
-      if (state.clashProgress >= 100) {
-        state.clashProgress = 0;
-        executeClashRound();
-      }
-    }
 
     if (tickCount % 10 === 0) {
       state.timeSec++;
@@ -178,9 +164,7 @@ function craftItem(unit, recipe, isPlayer = true) {
   updateUI();
 }
 
-// ==========================================
-// 【3 秒搜刮讀條與動作鎖定系統】
-// ==========================================
+// 搜刮邏輯
 function triggerSearch() {
   if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
   const p = state.player;
@@ -304,85 +288,142 @@ function moveZone(targetZoneId) {
   updateUI();
 }
 
-// ==========================================
-// 【超靈敏拖曳系統】
-// ==========================================
-let draggedBagIndex = null;
+// ========================================================
+// 🚀 【手遊級 0 延遲極速絲滑觸控拖曳系統 (Touch Engine)】
+// ========================================================
+let touchState = {
+  active: false,
+  isDragging: false,
+  bagIndex: null,
+  startX: 0,
+  startY: 0,
+  ghostEl: null
+};
 
-function handleDragStart(event, index) {
-  if (state.isSearching) return;
-  draggedBagIndex = index;
-  event.dataTransfer.setData("text/plain", index);
+function handleItemTouchStart(e, index) {
+  if (state.gameOver || state.isSearching) return;
+  const touch = e.touches[0];
+  touchState.active = true;
+  touchState.isDragging = false;
+  touchState.bagIndex = index;
+  touchState.startX = touch.clientX;
+  touchState.startY = touch.clientY;
 }
 
-function handleDragOverYellow(event) {
-  event.preventDefault();
-  const yellowBox = document.getElementById("drop-zone-yellow");
-  if (yellowBox) yellowBox.classList.add("drag-over-yellow");
+function handleItemTouchMove(e) {
+  if (!touchState.active) return;
+  const touch = e.touches[0];
+  const deltaX = Math.abs(touch.clientX - touchState.startX);
+  const deltaY = Math.abs(touch.clientY - touchState.startY);
+
+  // 只要滑動超過 6 像素，0 延遲立刻啟動拖曳！
+  if (!touchState.isDragging && (deltaX > 6 || deltaY > 6)) {
+    touchState.isDragging = true;
+
+    // 建立半透明跟手飛翔元件
+    const item = GAME_DATA.items[state.player.bag[touchState.bagIndex]];
+    const ghost = document.createElement("div");
+    ghost.id = "touch-drag-ghost";
+    ghost.className = "fixed pointer-events-none z-[9999] px-3 py-1.5 bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-2xl border-2 border-white scale-110 opacity-90 transition-transform";
+    ghost.textContent = item ? item.name : "物品";
+    document.body.appendChild(ghost);
+    touchState.ghostEl = ghost;
+  }
+
+  if (touchState.isDragging && touchState.ghostEl) {
+    // 阻止手機原生捲動，讓元件緊貼手指中央偏上方
+    e.preventDefault();
+    touchState.ghostEl.style.left = `${touch.clientX - 40}px`;
+    touchState.ghostEl.style.top = `${touch.clientY - 45}px`;
+
+    // 碰觸高亮偵測
+    const hoveredEl = document.elementFromPoint(touch.clientX, touch.clientY);
+    const yellowZone = document.getElementById("drop-zone-yellow");
+    const redZone = document.getElementById("drop-zone-red");
+
+    if (yellowZone && yellowZone.contains(hoveredEl)) {
+      yellowZone.classList.add("drag-over-yellow");
+    } else if (yellowZone) {
+      yellowZone.classList.remove("drag-over-yellow");
+    }
+
+    if (redZone && redZone.contains(hoveredEl)) {
+      redZone.classList.add("drag-over-red");
+    } else if (redZone) {
+      redZone.classList.remove("drag-over-red");
+    }
+  }
 }
 
-function handleDragLeaveYellow(event) {
-  const yellowBox = document.getElementById("drop-zone-yellow");
-  if (yellowBox) yellowBox.classList.remove("drag-over-yellow");
+function handleItemTouchEnd(e) {
+  if (!touchState.active) return;
+
+  const yellowZone = document.getElementById("drop-zone-yellow");
+  const redZone = document.getElementById("drop-zone-red");
+  if (yellowZone) yellowZone.classList.remove("drag-over-yellow");
+  if (redZone) redZone.classList.remove("drag-over-red");
+
+  if (touchState.ghostEl) {
+    touchState.ghostEl.remove();
+    touchState.ghostEl = null;
+  }
+
+  // 1. 如果有實質拖曳：計算最後落點並觸發裝備/丟棄
+  if (touchState.isDragging) {
+    const touch = e.changedTouches[0];
+    const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    if (yellowZone && yellowZone.contains(dropTarget)) {
+      applyItemDropToYellow(touchState.bagIndex);
+    } else if (redZone && redZone.contains(dropTarget)) {
+      applyItemDropToRed(touchState.bagIndex);
+    }
+  } 
+  // 2. 如果只是單純輕點（沒有滑動）：直接開啟檢視彈窗
+  else {
+    inspectBagItem(touchState.bagIndex);
+  }
+
+  touchState.active = false;
+  touchState.isDragging = false;
+  touchState.bagIndex = null;
 }
 
-function handleDropToYellow(event) {
-  event.preventDefault();
-  const yellowBox = document.getElementById("drop-zone-yellow");
-  if (yellowBox) yellowBox.classList.remove("drag-over-yellow");
-
-  if (state.isSearching || draggedBagIndex === null || !state.player) return;
+// 核心落地結算邏輯
+function applyItemDropToYellow(bagIdx) {
+  if (bagIdx === null || !state.player) return;
   const p = state.player;
-  const item = GAME_DATA.items[p.bag[draggedBagIndex]];
-  const itemName = item ? item.name : p.bag[draggedBagIndex];
+  const item = GAME_DATA.items[p.bag[bagIdx]];
+  const itemName = item ? item.name : p.bag[bagIdx];
 
-  p.bag.splice(draggedBagIndex, 1);
+  p.bag.splice(bagIdx, 1);
   addLog(`拖曳丟棄了【${itemName}】。`, "text-slate-500");
-  draggedBagIndex = null;
   updateUI();
 }
 
-function handleDragOverRed(event) {
-  event.preventDefault();
-  const redBox = document.getElementById("drop-zone-red");
-  if (redBox) redBox.classList.add("drag-over-red");
-}
-
-function handleDragLeaveRed(event) {
-  const redBox = document.getElementById("drop-zone-red");
-  if (redBox) redBox.classList.remove("drag-over-red");
-}
-
-function handleDropToRed(event) {
-  event.preventDefault();
-  const redBox = document.getElementById("drop-zone-red");
-  if (redBox) redBox.classList.remove("drag-over-red");
-
-  if (state.isSearching || draggedBagIndex === null || !state.player) return;
+function applyItemDropToRed(bagIdx) {
+  if (bagIdx === null || !state.player) return;
   const p = state.player;
-  const index = draggedBagIndex;
-  const itemId = p.bag[index];
+  const itemId = p.bag[bagIdx];
   const item = GAME_DATA.items[itemId];
-
-  if (!item) {
-    draggedBagIndex = null;
-    return;
-  }
+  if (!item) return;
 
   if (item.type === "food") {
-    p.hp = Math.min(p.maxHp, p.hp + (item.hp || 0));
-    p.sp = Math.min(p.maxSp, p.sp + (item.sp || 0));
-    p.bag.splice(index, 1);
-    addLog(`吃掉了【${item.name}】！`, "text-emerald-400 font-bold");
+    const healHp = item.hp || 0;
+    const healSp = item.sp || 0;
+    p.hp = Math.min(p.maxHp, p.hp + healHp);
+    p.sp = Math.min(p.maxSp, p.sp + healSp);
+    p.bag.splice(bagIdx, 1);
+    addLog(`吃掉了【${item.name}】！回復 ${healHp} HP / ${healSp} SP。`, "text-emerald-400 font-bold");
   } 
   else if (item.type === "weapon") {
     const oldWeapon = p.weapon;
     p.weapon = item;
     if (oldWeapon) {
-      p.bag[index] = oldWeapon.id;
-      addLog(`換上武器【${item.name}】，原武器【${oldWeapon.name}】已放回背包！`, "text-amber-300 font-bold");
+      p.bag[bagIdx] = oldWeapon.id;
+      addLog(`換上武器【${item.name}】，原武器【${oldWeapon.name}】已收回背包！`, "text-amber-300 font-bold");
     } else {
-      p.bag.splice(index, 1);
+      p.bag.splice(bagIdx, 1);
       addLog(`裝備武器【${item.name}】！`, "text-amber-300");
     }
   } 
@@ -390,18 +431,17 @@ function handleDropToRed(event) {
     const oldArmor = p.armor;
     p.armor = item;
     if (oldArmor) {
-      p.bag[index] = oldArmor.id;
-      addLog(`穿上防具【${item.name}】，原防具【${oldArmor.name}】已放回背包！`, "text-sky-300 font-bold");
+      p.bag[bagIdx] = oldArmor.id;
+      addLog(`穿上防具【${item.name}】，原防具【${oldArmor.name}】已收回背包！`, "text-sky-300 font-bold");
     } else {
-      p.bag.splice(index, 1);
+      p.bag.splice(bagIdx, 1);
       addLog(`穿上防具【${item.name}】！`, "text-sky-300");
     }
   } 
   else {
-    addLog(`此物品無法直接裝備或食用！`, "text-rose-400");
+    addLog(`此物品為材料，無法直接裝備！`, "text-rose-400");
   }
 
-  draggedBagIndex = null;
   updateUI();
 }
 
@@ -489,58 +529,20 @@ function closeItemInfoModal(event) {
 
 function modalActionUse() {
   if (activeInspectTarget.type !== 'bag') return;
-  const p = state.player;
-  const index = activeInspectTarget.indexOrKey;
-  const itemId = p.bag[index];
-  const item = GAME_DATA.items[itemId];
-  if (!item) return;
-
-  const healHp = item.hp || 0;
-  const healSp = item.sp || 0;
-
-  p.hp = Math.min(p.maxHp, p.hp + healHp);
-  p.sp = Math.min(p.maxSp, p.sp + healSp);
-  p.bag.splice(index, 1);
-
-  addLog(`吃掉了【${item.name}】！回復了 ${healHp} 血量與 ${healSp} 體力。`, "text-emerald-400 font-bold");
+  applyItemDropToRed(activeInspectTarget.indexOrKey);
   closeItemInfoModal();
-  updateUI();
 }
 
 function modalActionEquip() {
   if (activeInspectTarget.type !== 'bag') return;
-  const p = state.player;
-  const index = activeInspectTarget.indexOrKey;
-  const itemId = p.bag[index];
-  const item = GAME_DATA.items[itemId];
-  if (!item) return;
-
-  if (item.type === "weapon") {
-    const old = p.weapon;
-    p.weapon = item;
-    if (old) { p.bag[index] = old.id; addLog(`換上武器【${item.name}】，原武器已放回背包！`, "text-amber-300 font-bold"); }
-    else { p.bag.splice(index, 1); addLog(`裝備武器【${item.name}】！`, "text-amber-300"); }
-  } else if (item.type === "armor") {
-    const old = p.armor;
-    p.armor = item;
-    if (old) { p.bag[index] = old.id; addLog(`穿上防具【${item.name}】，原防具已放回背包！`, "text-sky-300 font-bold"); }
-    else { p.bag.splice(index, 1); addLog(`穿上防具【${item.name}】！`, "text-sky-300"); }
-  }
+  applyItemDropToRed(activeInspectTarget.indexOrKey);
   closeItemInfoModal();
-  updateUI();
 }
 
 function modalActionDrop() {
   if (activeInspectTarget.type !== 'bag') return;
-  const p = state.player;
-  const index = activeInspectTarget.indexOrKey;
-  const itemId = p.bag[index];
-  const item = GAME_DATA.items[itemId];
-
-  p.bag.splice(index, 1);
-  addLog(`丟棄了【${item ? item.name : itemId}】。`, "text-slate-500");
+  applyItemDropToYellow(activeInspectTarget.indexOrKey);
   closeItemInfoModal();
-  updateUI();
 }
 
 function modalActionUnequip() {
@@ -585,14 +587,14 @@ function renderEquipSixGrid(p) {
   gridEl.innerHTML = slots.map(s => {
     if (s.item) {
       return `
-        <div onclick="inspectEquipSlot('${s.key}')" class="h-10 rounded border ${s.activeColor} flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
+        <div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border ${s.activeColor} flex items-center justify-center relative cursor-pointer active:scale-95 transition shadow" title="點擊檢視 ${s.item.name}">
           ${s.svg}
           <span class="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         </div>
       `;
     }
     return `
-      <div class="h-10 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-60" title="${s.label} (空)">
+      <div class="h-9 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-60" title="${s.label} (空)">
         ${s.svg}
       </div>
     `;
@@ -627,7 +629,7 @@ function renderTacticalMap() {
     }
 
     return `
-      <button onclick="moveZone('${z.id}')" class="w-44 py-3 px-4 rounded-xl border-2 text-center transition active:scale-95 ${boxStyle}">
+      <button onclick="moveZone('${z.id}')" class="w-44 py-2.5 px-4 rounded-xl border-2 text-center transition active:scale-95 ${boxStyle}">
         <div class="text-base font-black tracking-wider">${z.name}</div>
         <div class="text-[10px] mt-0.5 opacity-80">${statusTag}</div>
       </button>
@@ -636,9 +638,9 @@ function renderTacticalMap() {
 
   container.innerHTML = `
     ${buildNodeHTML("shilin")}
-    <div class="h-5 w-0.5 bg-slate-600"></div>
+    <div class="h-4 w-0.5 bg-slate-600"></div>
     ${buildNodeHTML("taipei_main")}
-    <div class="w-48 h-5 flex justify-around">
+    <div class="w-48 h-4 flex justify-around">
       <div class="h-full w-0.5 bg-slate-600"></div>
       <div class="h-full w-0.5 bg-slate-600"></div>
     </div>
@@ -676,7 +678,7 @@ function updateUI() {
     craftBox.classList.remove("hidden");
     craftBox.innerHTML = availableRecipes.map(r => {
       const targetItem = GAME_DATA.items[r.result];
-      return `<button onclick="craftItem(state.player, GAME_DATA.recipes.find(x=>x.result==='${r.result}'), true)" class="w-full py-2.5 px-3 mb-1.5 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】</span><span>${r.desc}</span></button>`;
+      return `<button onclick="craftItem(state.player, GAME_DATA.recipes.find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】</span><span>${r.desc}</span></button>`;
     }).join("");
   } else if (craftBox) { 
     craftBox.classList.add("hidden"); 
@@ -717,6 +719,7 @@ function updateUI() {
   const bagCount = document.getElementById("bag-count");
   if (bagCount) bagCount.textContent = `${p.bag.length} / 6`;
 
+  // 💡 背包格子：全面綁定 ontouchstart, ontouchmove, ontouchend，達到 0 延遲極速絲滑操作
   const invGrid = document.getElementById("inventory-grid");
   if (invGrid) {
     invGrid.innerHTML = Array.from({length: 6}, (_, i) => {
@@ -724,12 +727,15 @@ function updateUI() {
         const it = GAME_DATA.items[p.bag[i]];
         const itemName = it ? it.name : p.bag[i];
         return `
-          <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="inspectBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-2 text-left h-14 transition flex flex-col justify-center cursor-grab active:cursor-grabbing select-none">
+          <div ontouchstart="handleItemTouchStart(event, ${i})"
+               ontouchmove="handleItemTouchMove(event)"
+               ontouchend="handleItemTouchEnd(event)"
+               class="bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none">
             <div class="text-xs font-bold truncate text-slate-100">${itemName}</div>
           </div>
         `;
       }
-      return `<div class="bg-slate-900 border border-slate-800 rounded p-1.5 text-center text-slate-600 h-14 flex items-center justify-center text-xs">空</div>`;
+      return `<div class="bg-slate-900 border border-slate-800 rounded p-1 text-center text-slate-600 h-12 flex items-center justify-center text-xs">空</div>`;
     }).join("");
   }
 }
