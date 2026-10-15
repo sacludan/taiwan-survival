@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v43：修復大冰奶食物屬性與幹話格式，全面與臭豆腐標準格式對齊
+ * v44：加入資料庫自動合併保護，解決載入順序衝突導致的合成表空白與搜刮失效
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -28,16 +28,27 @@ const state = {
   trackedItemId: null
 };
 
-// 萬能物品安全讀取
-function getSafeItem(itemId) {
-  if (!itemId) return null;
-  if (typeof GAME_DATA !== 'undefined' && GAME_DATA.items) {
-    if (GAME_DATA.items[itemId]) return GAME_DATA.items[itemId];
-    if (itemId === "boba_milk_tea" && GAME_DATA.items["milk_tea"]) return GAME_DATA.items["milk_tea"];
-    if (itemId === "milk_tea" && GAME_DATA.items["boba_milk_tea"]) return GAME_DATA.items["boba_milk_tea"];
-  }
+// 確保所有分散檔案的物品均匯入 GAME_DATA
+function ensureGameDataIntegrity() {
+  if (typeof GAME_DATA === 'undefined') window.GAME_DATA = { items: {}, recipes: [], zones: [] };
+  if (!GAME_DATA.items) GAME_DATA.items = {};
 
-  // 兜底專用防呆
+  if (window.ITEMS_WEAPON) Object.assign(GAME_DATA.items, window.ITEMS_WEAPON);
+  if (window.ITEMS_ARMOR) Object.assign(GAME_DATA.items, window.ITEMS_ARMOR);
+  if (window.ITEMS_MATERIAL) Object.assign(GAME_DATA.items, window.ITEMS_MATERIAL);
+  if (window.ITEMS_FOOD) Object.assign(GAME_DATA.items, window.ITEMS_FOOD);
+  if (window.GAME_RECIPES && (!GAME_DATA.recipes || GAME_DATA.recipes.length === 0)) {
+    GAME_DATA.recipes = window.GAME_RECIPES;
+  }
+}
+
+function getSafeItem(itemId) {
+  ensureGameDataIntegrity();
+  if (!itemId) return null;
+  if (GAME_DATA.items[itemId]) return GAME_DATA.items[itemId];
+  if (itemId === "boba_milk_tea" && GAME_DATA.items["milk_tea"]) return GAME_DATA.items["milk_tea"];
+  if (itemId === "milk_tea" && GAME_DATA.items["boba_milk_tea"]) return GAME_DATA.items["boba_milk_tea"];
+
   if (itemId === "boba_milk_tea" || itemId === "milk_tea") {
     return {
       id: "milk_tea",
@@ -54,12 +65,18 @@ function getSafeItem(itemId) {
 
 function getItemDisplayName(itemId) {
   if (!itemId) return "空";
-  const item = getSafeItem(itemId);
-  return item ? item.name : itemId;
+  ensureGameDataIntegrity();
+  if (GAME_DATA.items && GAME_DATA.items[itemId]) {
+    return GAME_DATA.items[itemId].name;
+  }
+  if (itemId === "boba_milk_tea" || itemId === "milk_tea") return "全糖大冰奶";
+  if (itemId === "sausage") return "烤香腸";
+  return itemId;
 }
 
 function getItemDropLocationName(itemId) {
-  if (!GAME_DATA || !GAME_DATA.zones) return "士林夜市";
+  ensureGameDataIntegrity();
+  if (!GAME_DATA.zones) return "士林夜市";
   const found = GAME_DATA.zones.find(z => z.drops && (z.drops.includes(itemId) || ((itemId === 'boba_milk_tea' || itemId === 'milk_tea') && (z.drops.includes('milk_tea') || z.drops.includes('boba_milk_tea')))));
   return found ? found.name : "合成獲得";
 }
@@ -87,6 +104,7 @@ function getTotalDef(unit) {
 }
 
 function initGame(isSandbox = false) {
+  ensureGameDataIntegrity();
   DEV_CONFIG.enableZoneClose = !isSandbox;
   DEV_CONFIG.enableNPC = !isSandbox;
 
@@ -112,7 +130,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】任何道具皆可追蹤，格式已全數校正！", "text-emerald-400 font-bold");
+    addLog("【測試模式】任何道具皆可追蹤，合成與搜刮已修復！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！所有物品皆可點擊追蹤產地與合成！", "text-amber-300 font-bold");
   }
@@ -192,6 +210,7 @@ function addLog(msg, color = "text-slate-300") {
 }
 
 function findAvailableRecipes(unit) {
+  ensureGameDataIntegrity();
   if (!GAME_DATA || !GAME_DATA.recipes) return [];
   const ownedIds = [...unit.bag];
   if (unit.equip) {
@@ -279,11 +298,18 @@ function triggerSearch() {
 }
 
 function executeSearchFinish() {
+  ensureGameDataIntegrity();
   const p = state.player;
   const currentZoneObj = GAME_DATA.zones.find(z => z.id === p.zone);
 
   if (DEV_CONFIG.enableNPC && state.ai.alive && state.ai.zone === p.zone && Math.random() < 0.60) {
     startCombat();
+    return;
+  }
+
+  if (!currentZoneObj || !currentZoneObj.drops || currentZoneObj.drops.length === 0) {
+    addLog("此處沒有發現任何物資。", "text-slate-400");
+    updateUI();
     return;
   }
 
@@ -432,6 +458,7 @@ function renderTargetTracker() {
 }
 
 function getItemRecipeTree(itemId) {
+  ensureGameDataIntegrity();
   if (!GAME_DATA || !GAME_DATA.recipes) return { downstream: null, upstream: [] };
 
   const downstream = GAME_DATA.recipes.find(r => r.result === itemId) || null;
@@ -486,10 +513,11 @@ function filterCraftBook(tab) {
 }
 
 function renderCraftBookList() {
+  ensureGameDataIntegrity();
   const listEl = document.getElementById("craft-recipes-list");
-  if (!listEl || !GAME_DATA || !GAME_DATA.recipes) return;
+  if (!listEl) return;
 
-  let recipes = GAME_DATA.recipes;
+  let recipes = GAME_DATA.recipes || [];
 
   if (currentCraftTab !== 'all') {
     recipes = recipes.filter(r => {
@@ -500,6 +528,11 @@ function renderCraftBookList() {
       if (currentCraftTab === 'food') return resItem.type === 'food';
       return true;
     });
+  }
+
+  if (recipes.length === 0) {
+    listEl.innerHTML = `<div class="text-center text-slate-500 py-6 text-xs">暫無相關合成公式</div>`;
+    return;
   }
 
   listEl.innerHTML = recipes.map(r => {
@@ -670,7 +703,7 @@ function applyItemDropToRed(bagIdx) {
 }
 
 // ==========================================
-// 💡 【精準情報彈窗：標準化數值與幹話】
+// 【情報彈窗：標準化數值與幹話】
 // ==========================================
 let activeInspectTarget = { type: null, indexOrKey: null };
 
@@ -721,7 +754,6 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   if (catEl) catEl.textContent = categoryText;
   if (nameEl) nameEl.textContent = item.name;
 
-  // 💡 正確格式化屬性標籤（與臭豆腐一模一樣）
   let statStr = "";
   if (item.type === "food") {
     statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
@@ -940,6 +972,7 @@ function renderTacticalMap() {
 }
 
 function updateUI() {
+  ensureGameDataIntegrity();
   if (!state.player || !state.ai || typeof GAME_DATA === 'undefined') return;
   const p = state.player; const ai = state.ai;
 
