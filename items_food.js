@@ -1,8 +1,8 @@
 /**
  * 【模組：食物道具 items_food.js】
- * 補齊全糖大冰奶的完整數值與幹話描述
+ * 安全掛載全域變數，避免因載入順序造成 JS 當掉
  */
-const ITEMS_FOOD = {
+window.ITEMS_FOOD = {
   milk_tea: {
     id: "milk_tea",
     name: "全糖大冰奶",
@@ -45,7 +45,7 @@ const ITEMS_FOOD = {
   }
 };
 
-// 合併至全域資料庫
+// 如果 GAME_DATA 已經存在就立即合併
 if (typeof GAME_DATA !== 'undefined' && GAME_DATA.items) {
-  Object.assign(GAME_DATA.items, ITEMS_FOOD);
+  Object.assign(GAME_DATA.items, window.ITEMS_FOOD);
 }
