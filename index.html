@@ -6,11 +6,9 @@
   <title>台灣生存戰：黑色倖存者 MVP</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 💡 徹底解決 iPhone 瀏海與底部橫條切到問題 */
     html, body {
       width: 100%;
       height: 100%;
-      height: 100dvh;
       overflow: hidden;
       position: fixed;
       margin: 0;
@@ -21,25 +19,23 @@
       background-color: #020617;
     }
 
+    /* 💡 外框高度直接縮小 10% (改為 90vh)，上下留白不被裁切 */
     .iphone-device-frame {
       width: 100%;
       max-width: 402px;
-      height: 100%;
-      height: 100dvh;
-      /* 頂部避開動態島/瀏海，底部避開小白條 */
-      padding-top: max(env(safe-area-inset-top), 8px);
-      padding-bottom: max(env(safe-area-inset-bottom), 10px);
-      box-sizing: border-box;
+      height: 90vh !important;
+      max-height: 90vh !important;
+      border-radius: 28px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
     }
 
     @media (min-width: 640px) {
       .iphone-device-frame {
-        height: 844px !important;
-        max-height: 844px !important;
+        height: 780px !important;
+        max-height: 780px !important;
         border-radius: 46px;
         box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 0 10px #1e293b;
-        padding-top: 16px;
-        padding-bottom: 16px;
       }
     }
 
@@ -52,7 +48,6 @@
       touch-action: none;
     }
 
-    /* 戰報極簡微型半透明捲軸 */
     .custom-scrollbar::-webkit-scrollbar {
       width: 4px;
     }
@@ -74,14 +69,14 @@
     }
   </style>
 </head>
-<body class="text-slate-100 flex items-center justify-center">
+<body class="text-slate-100 flex items-center justify-center p-0">
 
-  <div class="iphone-device-frame bg-slate-900 flex flex-col justify-between border-x sm:border border-slate-800 relative overflow-hidden">
+  <div class="iphone-device-frame bg-slate-900 flex flex-col justify-between border border-slate-800 relative">
 
     <!-- ========================================== -->
     <!-- 1. 【遊戲主大廳畫面】 -->
     <!-- ========================================== -->
-    <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-5 text-center pt-10 pb-8">
+    <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-5 text-center pt-8 pb-6">
       <div class="mt-4">
         <h1 class="text-3xl font-black text-white tracking-wider mb-1">台灣生存戰</h1>
         <p class="text-xs text-indigo-400 font-mono tracking-widest uppercase">Formosa Survival: Battle Royale</p>
@@ -105,7 +100,7 @@
       </div>
 
       <div class="text-[10px] text-slate-600">
-        iPhone Safe Area Fitted • MVP v0.31
+        Scaled 90vh Frame • MVP v0.32
       </div>
     </div>
 
@@ -114,42 +109,41 @@
     <!-- ========================================== -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative overflow-hidden">
 
-      <main class="flex-1 px-3 pt-1 pb-1.5 flex flex-col justify-between gap-1.5 overflow-hidden relative">
+      <main class="flex-1 px-3 py-2 flex flex-col justify-between gap-2 overflow-hidden relative">
         <div id="craft-alert-box" class="hidden"></div>
 
-        <!-- 上方探索面板：高度彈性收縮 -->
+        <!-- 探索面板 -->
         <div id="drop-zone-yellow" 
              onclick="triggerSearch()"
              ondragover="handleDragOverYellow(event)" 
              ondragleave="handleDragLeaveYellow(event)" 
              ondrop="handleDropToYellow(event)" 
-             class="flex-1 min-h-[160px] flex flex-col justify-between bg-slate-800/40 hover:bg-slate-800/70 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-2.5 relative transition cursor-pointer select-none">
+             class="flex-1 flex flex-col justify-between bg-slate-800/40 hover:bg-slate-800/70 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3 relative transition cursor-pointer select-none">
           
-          <div class="flex justify-between items-start border-b border-slate-700/60 pb-1">
+          <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5">
             <div>
               <div class="text-[9px] text-slate-400 font-mono">CURRENT LOCATION</div>
-              <h2 id="zone-title" class="text-base font-black text-white tracking-wide">立法院</h2>
+              <h2 id="zone-title" class="text-lg font-black text-white tracking-wide">立法院</h2>
               <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5">可搜刮物資：載入中</p>
             </div>
 
-            <button onclick="event.stopPropagation(); openMapModal();" class="px-3 py-1 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
+            <button onclick="event.stopPropagation(); openMapModal();" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
               <span class="text-xs font-black text-amber-400">移動</span>
               <span class="text-[8px] text-slate-400">地圖</span>
             </button>
           </div>
 
           <div class="my-auto py-1 text-center space-y-1">
-            <div id="search-prompt-text" class="text-amber-300 font-black text-xs tracking-wider hidden animate-pulse">
+            <div id="search-prompt-text" class="text-amber-300 font-black text-sm tracking-wider hidden animate-pulse">
               🔍 搜刮中...
             </div>
-            <div id="search-progress-box" class="hidden w-full bg-slate-900 border border-slate-700 h-2 rounded-full overflow-hidden p-0.5">
+            <div id="search-progress-box" class="hidden w-full bg-slate-900 border border-slate-700 h-2.5 rounded-full overflow-hidden p-0.5">
               <div id="search-progress-bar" class="bg-amber-500 h-full rounded-full transition-all duration-100" style="width: 0%"></div>
             </div>
           </div>
 
-          <!-- 戰況日誌：高度設為 52px，確保不擠壓下方版面 -->
-          <div class="pt-1 border-t border-slate-700/40">
-            <div class="h-[52px] overflow-y-auto space-y-0.5 text-[10px] font-mono text-slate-300 pr-1 custom-scrollbar">
+          <div class="pt-1.5 border-t border-slate-700/40">
+            <div class="h-[60px] overflow-y-auto space-y-0.5 text-[11px] font-mono text-slate-300 pr-1 custom-scrollbar">
               <div id="game-log" class="space-y-0.5"></div>
             </div>
           </div>
@@ -157,34 +151,34 @@
         </div>
 
         <!-- 戰鬥面板 -->
-        <div id="combat-panel" class="hidden bg-rose-950/40 border-2 border-rose-600/80 rounded-xl p-2 space-y-1.5">
-          <div class="flex justify-between items-center border-b border-rose-800/60 pb-1">
+        <div id="combat-panel" class="hidden bg-rose-950/40 border-2 border-rose-600/80 rounded-xl p-2.5 space-y-2">
+          <div class="flex justify-between items-center border-b border-rose-800/60 pb-1.5">
             <div>
-              <span class="text-[9px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold">遭遇戰 (回合制)</span>
-              <h3 id="enemy-name" class="text-sm font-extrabold text-white mt-0.5">嗡嗡阿伯</h3>
-              <p id="enemy-stats" class="text-[10px] text-rose-200">攻擊 14 | 防禦 8</p>
+              <span class="text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded font-bold">遭遇戰 (回合制)</span>
+              <h3 id="enemy-name" class="text-base font-extrabold text-white mt-0.5">嗡嗡阿伯</h3>
+              <p id="enemy-stats" class="text-[11px] text-rose-200">攻擊 14 | 防禦 8</p>
             </div>
             <div class="text-right">
-              <span id="combat-cooldown-text" class="text-[11px] text-amber-400 font-mono font-bold block">指令就緒</span>
-              <span id="enemy-hp-text" class="text-[11px] font-mono text-rose-300 font-bold">HP: 130/130</span>
+              <span id="combat-cooldown-text" class="text-xs text-amber-400 font-mono font-bold block">指令就緒</span>
+              <span id="enemy-hp-text" class="text-xs font-mono text-rose-300 font-bold">HP: 130/130</span>
             </div>
           </div>
 
-          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
             <div id="enemy-hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
           </div>
 
-          <div class="grid grid-cols-4 gap-1 pt-0.5">
-            <button id="btn-combat-atk" onclick="executeCombatAction('attack')" class="bg-amber-600 hover:bg-amber-500 active:scale-95 text-slate-950 font-black py-1.5 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
+          <div class="grid grid-cols-4 gap-1.5 pt-0.5">
+            <button id="btn-combat-atk" onclick="executeCombatAction('attack')" class="bg-amber-600 hover:bg-amber-500 active:scale-95 text-slate-950 font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
               <span>⚔️ 攻擊</span>
             </button>
-            <button id="btn-combat-skill" onclick="executeCombatAction('skill')" class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black py-1.5 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
+            <button id="btn-combat-skill" onclick="executeCombatAction('skill')" class="bg-purple-600 hover:bg-purple-500 active:scale-95 text-white font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
               <span>✨ 技能</span>
             </button>
-            <button id="btn-combat-food" onclick="executeCombatAction('food')" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black py-1.5 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
+            <button id="btn-combat-food" onclick="executeCombatAction('food')" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
               <span>🍖 食物</span>
             </button>
-            <button id="btn-combat-flee" onclick="executeCombatAction('flee')" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-black py-1.5 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
+            <button id="btn-combat-flee" onclick="executeCombatAction('flee')" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white font-black py-2 px-1 rounded-lg text-xs shadow transition flex flex-col items-center justify-center">
               <span>🏃 逃跑</span>
             </button>
           </div>
@@ -195,19 +189,19 @@
              ondragover="handleDragOverRed(event)" 
              ondragleave="handleDragLeaveRed(event)" 
              ondrop="handleDropToRed(event)" 
-             class="flex gap-1.5 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
+             class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition">
           
-          <div class="w-2/3 bg-slate-950 p-2 rounded-lg border border-slate-800 flex flex-col justify-between">
+          <div class="w-2/3 bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between">
             <div>
-              <div class="font-black text-xs text-white tracking-wide">戰神咆哮哥</div>
-              <div id="player-stats" class="text-[10px] text-amber-400 font-bold mt-0.5">攻擊 15 | 防禦 5</div>
+              <div class="font-black text-sm text-white tracking-wide">戰神咆哮哥</div>
+              <div id="player-stats" class="text-[11px] text-amber-400 font-bold mt-0.5">攻擊 15 | 防禦 5</div>
             </div>
 
-            <div class="space-y-1 text-xs my-auto pt-1">
+            <div class="space-y-1.5 text-xs my-auto pt-1">
               <div>
-                <div class="flex justify-between text-[9px] mb-0.5">
+                <div class="flex justify-between text-[10px] mb-0.5">
                   <span class="text-rose-400 font-bold">HP</span>
-                  <span id="hp-text" class="font-mono text-slate-300 text-[10px]">120/120</span>
+                  <span id="hp-text" class="font-mono text-slate-300 text-[11px]">120/120</span>
                 </div>
                 <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div id="hp-bar" class="bg-rose-500 h-full bar-transition" style="width: 100%"></div>
@@ -215,9 +209,9 @@
               </div>
 
               <div>
-                <div class="flex justify-between text-[9px] mb-0.5">
+                <div class="flex justify-between text-[10px] mb-0.5">
                   <span class="text-sky-400 font-bold">體力</span>
-                  <span id="sp-text" class="font-mono text-slate-300 text-[10px]">100/100</span>
+                  <span id="sp-text" class="font-mono text-slate-300 text-[11px]">100/100</span>
                 </div>
                 <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div id="sp-bar" class="bg-sky-500 h-full bar-transition" style="width: 100%"></div>
@@ -231,13 +225,13 @@
         </div>
       </main>
 
-      <!-- 底部隨身背包：高度緊湊精準，完全露出 6 格不被 Home 條切到 -->
-      <footer class="px-3 pt-1 pb-1 bg-slate-950 border-t border-slate-800">
-        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+      <!-- 底部隨身背包 -->
+      <footer class="px-3 py-2 bg-slate-950 border-t border-slate-800">
+        <div class="flex justify-between text-[11px] text-slate-400 mb-1">
           <span>隨身背包</span>
           <span id="bag-count">0 / 6</span>
         </div>
-        <div id="inventory-grid" class="grid grid-cols-3 gap-1 min-h-[48px]"></div>
+        <div id="inventory-grid" class="grid grid-cols-3 gap-1.5 min-h-[52px]"></div>
       </footer>
 
       <!-- 物品詳細資訊彈窗 -->
@@ -298,19 +292,19 @@
 
   </div>
 
-  <!-- 🔗 模組引入清單 (更新為 ?v=31 強制破除快取) -->
-  <script src="items_weapon.js?v=31"></script>
-  <script src="items_armor.js?v=31"></script>
-  <script src="items_material.js?v=31"></script>
-  <script src="items_food.js?v=31"></script>
-  <script src="recipes.js?v=31"></script>
-  <script src="maps.js?v=31"></script>
-  <script src="characters.js?v=31"></script>
-  <script src="game_config.js?v=31"></script>
+  <!-- 🔗 模組引入清單 (更新為 ?v=32 強制破除快取) -->
+  <script src="items_weapon.js?v=32"></script>
+  <script src="items_armor.js?v=32"></script>
+  <script src="items_material.js?v=32"></script>
+  <script src="items_food.js?v=32"></script>
+  <script src="recipes.js?v=32"></script>
+  <script src="maps.js?v=32"></script>
+  <script src="characters.js?v=32"></script>
+  <script src="game_config.js?v=32"></script>
   
-  <script src="lobby.js?v=31"></script>
-  <script src="ai.js?v=31"></script>
-  <script src="combat.js?v=31"></script>
-  <script src="main.js?v=31"></script>
+  <script src="lobby.js?v=32"></script>
+  <script src="ai.js?v=32"></script>
+  <script src="combat.js?v=32"></script>
+  <script src="main.js?v=32"></script>
 </body>
 </html>
