@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v40：在探索區左上角（綠框）實裝透明背景目標材料追蹤器，並整合產地提示與背包實時比對
+ * v41：完整實裝上下位合成樹、遞迴點擊查配方、取消開局預設追蹤
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -25,7 +25,7 @@ const state = {
   isSearching: false,
   player: null,
   ai: null,
-  trackedRecipeResult: null // 💡 當前追蹤的目標配方產物 ID
+  trackedRecipeResult: null // 預設為 null，由玩家主動點選追蹤才出現
 };
 
 function getItemDisplayName(itemId) {
@@ -37,7 +37,6 @@ function getItemDisplayName(itemId) {
   return itemId;
 }
 
-// 根據素材 ID 查詢掉落地點名稱
 function getItemDropLocationName(itemId) {
   if (!GAME_DATA || !GAME_DATA.zones) return "";
   const found = GAME_DATA.zones.find(z => z.drops && z.drops.includes(itemId));
@@ -76,9 +75,7 @@ function initGame(isSandbox = false) {
   state.inCombat = false;
   state.gameOver = false;
   state.isSearching = false;
-
-  // 💡 預設追蹤新手實用武器：reinforced_chair (若配方存在)
-  state.trackedRecipeResult = GAME_DATA.recipes && GAME_DATA.recipes.length > 0 ? GAME_DATA.recipes[0].result : null;
+  state.trackedRecipeResult = null; // 💡 開局不預設追蹤任何物品
 
   state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
   state.player.skill.cast = GAME_CHARACTERS.roar_brother.skill.cast;
@@ -94,9 +91,9 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】綠框材料追蹤已啟動，點擊可快速換目標！", "text-emerald-400 font-bold");
+    addLog("【測試模式】支援上下位合成樹查看，點選圖鑑開始追蹤！", "text-emerald-400 font-bold");
   } else {
-    addLog("台灣生存戰正式開局！左上角綠框為目標材料追蹤列！", "text-amber-300 font-bold");
+    addLog("台灣生存戰正式開局！點擊物品或合成表查看上下位配方樹！", "text-amber-300 font-bold");
   }
 
   closeMapModal();
@@ -338,13 +335,20 @@ function moveZone(targetZoneId) {
 }
 
 // ==========================================
-// 💡 【綠框：材料追蹤框核心邏輯 (Target Tracker)】
+// 💡 【綠框：材料追蹤框核心邏輯】
 // ==========================================
 function setTrackedRecipe(recipeResultId) {
   state.trackedRecipeResult = recipeResultId;
   const resItem = GAME_DATA.items[recipeResultId];
   addLog(`已鎖定目標：【${resItem ? resItem.name : recipeResultId}】進行材料追蹤！`, "text-amber-300 font-bold");
   closeCraftBookModal();
+  closeItemInfoModal();
+  updateUI();
+}
+
+function clearTrackedRecipe() {
+  state.trackedRecipeResult = null;
+  addLog("已取消當前材料追蹤目標。", "text-slate-400");
   updateUI();
 }
 
@@ -354,12 +358,12 @@ function renderTargetTracker() {
   const listEl = document.getElementById("tracker-materials-list");
   if (!trackerBox || !nameEl || !listEl) return;
 
+  // 💡 若未選擇追蹤項目，直接隱藏
   if (!state.trackedRecipeResult) {
     trackerBox.classList.add("hidden");
     return;
   }
 
-  trackerBox.classList.remove("hidden");
   const recipe = GAME_DATA.recipes.find(r => r.result === state.trackedRecipeResult);
   const targetItem = GAME_DATA.items[state.trackedRecipeResult];
 
@@ -368,9 +372,9 @@ function renderTargetTracker() {
     return;
   }
 
+  trackerBox.classList.remove("hidden");
   nameEl.textContent = targetItem.name;
 
-  // 取得玩家目前擁有的全部物品 ID
   const ownedIds = [...(state.player.bag || [])];
   if (state.player.equip) {
     Object.values(state.player.equip).forEach(it => {
@@ -399,6 +403,33 @@ function renderTargetTracker() {
       `;
     }
   }).join("");
+}
+
+// ==========================================
+// 💡 【核心升級：上下位合成樹深度查詢邏輯】
+// ==========================================
+function getItemRecipeTree(itemId) {
+  if (!GAME_DATA || !GAME_DATA.recipes) return { downstream: null, upstream: [] };
+
+  // 下位合成：此物品是如何被製造出來的？
+  const downstream = GAME_DATA.recipes.find(r => r.result === itemId) || null;
+
+  // 上位合成：此物品可以被拿來做成什麼高階物品？
+  const upstream = GAME_DATA.recipes.filter(r => r.materials.includes(itemId)).map(r => ({
+    resultId: r.result,
+    resultItem: GAME_DATA.items[r.result],
+    recipe: r
+  }));
+
+  return { downstream, upstream };
+}
+
+// 點擊任何物品卡片/按鈕時快速跳轉檢視其配方樹
+function inspectItemById(itemId) {
+  const item = GAME_DATA.items[itemId];
+  if (!item) return;
+  activeInspectTarget = { type: 'tree_nav', indexOrKey: itemId };
+  showItemInfoModal(item, '配方樹導航', false);
 }
 
 // ==========================================
@@ -454,7 +485,12 @@ function renderCraftBookList() {
 
   listEl.innerHTML = recipes.map(r => {
     const resItem = GAME_DATA.items[r.result] || { name: r.result, atk: 0, def: 0 };
-    const matNames = r.materials.map(mId => getItemDisplayName(mId)).join(" + ");
+    
+    // 材料標籤（點擊每個材料可直接看其配方樹）
+    const matBadges = r.materials.map(mId => {
+      const mName = getItemDisplayName(mId);
+      return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-indigo-300 rounded border border-slate-700 text-[10px] underline decoration-indigo-400/40">${mName}</button>`;
+    }).join(`<span class="text-slate-500 font-bold">+</span>`);
 
     let statTag = "";
     if (resItem.atk) statTag = `<span class="text-amber-400 font-bold font-mono">+${resItem.atk} 攻</span>`;
@@ -464,19 +500,19 @@ function renderCraftBookList() {
     const isTrackingThis = state.trackedRecipeResult === r.result;
 
     return `
-      <div class="bg-slate-900 border ${isTrackingThis ? 'border-amber-500 shadow-md shadow-amber-950/40' : 'border-slate-800'} rounded-xl p-3 flex justify-between items-center transition">
+      <div onclick="inspectItemById('${r.result}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border ${isTrackingThis ? 'border-amber-500 shadow-md shadow-amber-950/40' : 'border-slate-800'} rounded-xl p-3 flex justify-between items-center transition">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-sm font-black text-white">${resItem.name}</span>
             ${statTag}
             ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold">追蹤中</span>' : ''}
           </div>
-          <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span class="text-slate-500 font-mono">配方:</span>
-            <span class="text-indigo-300 font-semibold">${matNames}</span>
+          <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5 flex-wrap">
+            <span class="text-slate-500 font-mono text-[10px]">配方:</span>
+            ${matBadges}
           </div>
         </div>
-        <button onclick="setTrackedRecipe('${r.result}')" class="px-2.5 py-1.5 ${isTrackingThis ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition">
+        <button onclick="event.stopPropagation(); setTrackedRecipe('${r.result}')" class="px-2.5 py-1.5 ml-2 ${isTrackingThis ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
           ${isTrackingThis ? '已追蹤' : '🎯 追蹤'}
         </button>
       </div>
@@ -616,7 +652,7 @@ function applyItemDropToRed(bagIdx) {
 }
 
 // ==========================================
-// 【詳細資訊檢視彈窗系統】
+// 💡 【全新彈窗：完整顯示數值 + 下位配方 + 上位衍生】
 // ==========================================
 let activeInspectTarget = { type: null, indexOrKey: null };
 
@@ -671,24 +707,79 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   if (item.atk) statStr = `攻擊力 +${item.atk}`;
   else if (item.def) statStr = `防禦力 +${item.def}`;
   else if (item.type === "food") statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
-  else statStr = `材料物資`;
+  else statStr = `基礎材料`;
   if (statEl) statEl.textContent = statStr;
 
   if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資。";
 
+  // 💡 查詢上下位合成樹
+  const { downstream, upstream } = getItemRecipeTree(item.id);
+
+  let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2.5 text-xs">`;
+
+  // 1. 下位合成展示（此物品如何合成）
+  if (downstream) {
+    const matBadges = downstream.materials.map(mId => {
+      const mName = getItemDisplayName(mId);
+      return `<button onclick="inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded border border-slate-700 text-[10px] underline">${mName}</button>`;
+    }).join(`<span class="text-slate-500 font-bold">+</span>`);
+
+    treeHTML += `
+      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800">
+        <div class="text-[10px] font-bold text-slate-400 mb-1 flex justify-between items-center">
+          <span>🔻【合成來源 (下位素材)】</span>
+          <button onclick="setTrackedRecipe('${item.id}')" class="text-amber-400 text-[10px] underline font-bold">🎯 追蹤此裝備</button>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          ${matBadges}
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. 上位合成展示（此物品可作為材料做成什麼）
+  if (upstream.length > 0) {
+    const upstreamBadges = upstream.map(u => {
+      const upName = u.resultItem ? u.resultItem.name : u.resultId;
+      return `
+        <div class="flex justify-between items-center py-1 border-b border-slate-800/60 last:border-0">
+          <button onclick="inspectItemById('${u.resultId}')" class="text-indigo-300 hover:text-indigo-200 font-bold underline text-[11px] text-left truncate max-w-[170px]">
+            🔺 ${upName}
+          </button>
+          <button onclick="setTrackedRecipe('${u.resultId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-400 text-[10px] rounded border border-slate-700 font-bold">
+            🎯 追蹤
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    treeHTML += `
+      <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 max-h-28 overflow-y-auto custom-scrollbar">
+        <div class="text-[10px] font-bold text-indigo-400 mb-1">🔺【可合成的高階物品 (上位衍生)】</div>
+        ${upstreamBadges}
+      </div>
+    `;
+  }
+
+  treeHTML += `</div>`;
+
+  // 操作按鈕
   let buttonsHTML = "";
   if (isFromBag) {
     if (['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
-      buttonsHTML = `<button onclick="modalActionEquip()" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow transition">裝備 (自動替換)</button>`;
+      buttonsHTML = `<button onclick="modalActionEquip()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow transition">裝備 (自動替換)</button>`;
     } else if (item.type === "food") {
-      buttonsHTML = `<button onclick="modalActionUse()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow transition">使用 (食用)</button>`;
+      buttonsHTML = `<button onclick="modalActionUse()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow transition">使用 (食用)</button>`;
     }
-    buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
-  } else {
-    buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (收回背包)</button>`;
+    buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
+  } else if (activeInspectTarget.type === 'equip') {
+    buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (收回背包)</button>`;
   }
 
-  if (btnContainer) btnContainer.innerHTML = buttonsHTML;
+  if (btnContainer) {
+    btnContainer.innerHTML = treeHTML + `<div class="space-y-1.5 pt-1">${buttonsHTML}</div>`;
+  }
+
   if (modal) modal.classList.remove("hidden");
 }
 
@@ -838,7 +929,7 @@ function updateUI() {
 
   renderEquipSixGrid(p);
 
-  // 💡 即時渲染綠框處的目標材料追蹤框
+  // 渲染綠框處的目標材料追蹤框
   renderTargetTracker();
 
   const craftBox = document.getElementById("craft-alert-box");
