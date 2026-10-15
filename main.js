@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v42：修復大冰奶無法點擊問題、全道具支援【🎯 追蹤】（可合成追蹤配方樹，不可合成追蹤掉落產地）
+ * v43：修復大冰奶食物屬性與幹話格式，全面與臭豆腐標準格式對齊
  */
 const DEV_CONFIG = {
   enableZoneClose: true,
@@ -25,33 +25,42 @@ const state = {
   isSearching: false,
   player: null,
   ai: null,
-  trackedItemId: null // 💡 支援任意道具 ID（裝備或素材均可）
+  trackedItemId: null
 };
 
 // 萬能物品安全讀取
 function getSafeItem(itemId) {
   if (!itemId) return null;
-  if (GAME_DATA && GAME_DATA.items) {
+  if (typeof GAME_DATA !== 'undefined' && GAME_DATA.items) {
     if (GAME_DATA.items[itemId]) return GAME_DATA.items[itemId];
     if (itemId === "boba_milk_tea" && GAME_DATA.items["milk_tea"]) return GAME_DATA.items["milk_tea"];
     if (itemId === "milk_tea" && GAME_DATA.items["boba_milk_tea"]) return GAME_DATA.items["boba_milk_tea"];
   }
-  return { id: itemId, name: getItemDisplayName(itemId), type: "material", desc: "生存物資" };
+
+  // 兜底專用防呆
+  if (itemId === "boba_milk_tea" || itemId === "milk_tea") {
+    return {
+      id: "milk_tea",
+      name: "全糖大冰奶",
+      type: "food",
+      hp: 20,
+      sp: 40,
+      desc: "台灣早餐店最強瀉藥聖品。喝下一口腸道蠕動速度提升300%，體力爆棚！"
+    };
+  }
+
+  return { id: itemId, name: getItemDisplayName(itemId), type: "material", desc: "這是一件神祕的台灣生存物資。" };
 }
 
 function getItemDisplayName(itemId) {
   if (!itemId) return "空";
-  if (GAME_DATA && GAME_DATA.items && GAME_DATA.items[itemId]) {
-    return GAME_DATA.items[itemId].name;
-  }
-  if (itemId === "boba_milk_tea" || itemId === "milk_tea") return "全糖大冰奶";
-  if (itemId === "sausage") return "烤香腸";
-  return itemId;
+  const item = getSafeItem(itemId);
+  return item ? item.name : itemId;
 }
 
 function getItemDropLocationName(itemId) {
-  if (!GAME_DATA || !GAME_DATA.zones) return "神秘區域";
-  const found = GAME_DATA.zones.find(z => z.drops && (z.drops.includes(itemId) || (itemId === 'boba_milk_tea' && z.drops.includes('milk_tea'))));
+  if (!GAME_DATA || !GAME_DATA.zones) return "士林夜市";
+  const found = GAME_DATA.zones.find(z => z.drops && (z.drops.includes(itemId) || ((itemId === 'boba_milk_tea' || itemId === 'milk_tea') && (z.drops.includes('milk_tea') || z.drops.includes('boba_milk_tea')))));
   return found ? found.name : "合成獲得";
 }
 
@@ -87,7 +96,7 @@ function initGame(isSandbox = false) {
   state.inCombat = false;
   state.gameOver = false;
   state.isSearching = false;
-  state.trackedItemId = null; // 開局不追蹤
+  state.trackedItemId = null;
 
   state.player = JSON.parse(JSON.stringify(GAME_CHARACTERS.roar_brother));
   state.player.skill.cast = GAME_CHARACTERS.roar_brother.skill.cast;
@@ -103,7 +112,7 @@ function initGame(isSandbox = false) {
   if (logEl) logEl.innerHTML = "";
 
   if (isSandbox) {
-    addLog("【測試模式】任何道具皆可追蹤，點擊道具即可查上下位！", "text-emerald-400 font-bold");
+    addLog("【測試模式】任何道具皆可追蹤，格式已全數校正！", "text-emerald-400 font-bold");
   } else {
     addLog("台灣生存戰正式開局！所有物品皆可點擊追蹤產地與合成！", "text-amber-300 font-bold");
   }
@@ -341,9 +350,6 @@ function moveZone(targetZoneId) {
   updateUI();
 }
 
-// ==========================================
-// 💡 【萬能追蹤系統：支援所有道具與材料】
-// ==========================================
 function setTrackedItem(itemId) {
   const item = getSafeItem(itemId);
   if (!item) return;
@@ -352,12 +358,6 @@ function setTrackedItem(itemId) {
   addLog(`🎯 已鎖定追蹤：【${item.name}】！`, "text-amber-300 font-bold");
   closeCraftBookModal();
   closeItemInfoModal();
-  updateUI();
-}
-
-function clearTrackedItem() {
-  state.trackedItemId = null;
-  addLog("已取消當前物品追蹤。", "text-slate-400");
   updateUI();
 }
 
@@ -390,7 +390,6 @@ function renderTargetTracker() {
 
   const recipe = GAME_DATA.recipes ? GAME_DATA.recipes.find(r => r.result === targetItem.id) : null;
 
-  // 1. 如果此道具「有合成公式」：顯示材料收集狀態
   if (recipe) {
     listEl.innerHTML = recipe.materials.map(mId => {
       const isOwned = ownedIds.includes(mId);
@@ -413,11 +412,9 @@ function renderTargetTracker() {
         `;
       }
     }).join("");
-  } 
-  // 2. 如果此道具是「基礎材料 / 食物」（不可合成）：顯示掉落地區與當前擁有狀況
-  else {
+  } else {
     const loc = getItemDropLocationName(targetItem.id);
-    const count = ownedIds.filter(id => id === targetItem.id).length;
+    const count = ownedIds.filter(id => id === targetItem.id || (targetItem.id === 'milk_tea' && id === 'boba_milk_tea') || (targetItem.id === 'boba_milk_tea' && id === 'milk_tea')).length;
 
     listEl.innerHTML = `
       <div class="space-y-0.5 pt-0.5">
@@ -434,7 +431,6 @@ function renderTargetTracker() {
   }
 }
 
-// 查詢上下位合成樹
 function getItemRecipeTree(itemId) {
   if (!GAME_DATA || !GAME_DATA.recipes) return { downstream: null, upstream: [] };
 
@@ -674,7 +670,7 @@ function applyItemDropToRed(bagIdx) {
 }
 
 // ==========================================
-// 💡 【全新彈窗：所有物品皆可追蹤 + 深度上下位】
+// 💡 【精準情報彈窗：標準化數值與幹話】
 // ==========================================
 let activeInspectTarget = { type: null, indexOrKey: null };
 
@@ -725,11 +721,17 @@ function showItemInfoModal(item, categoryText, isFromBag) {
   if (catEl) catEl.textContent = categoryText;
   if (nameEl) nameEl.textContent = item.name;
 
+  // 💡 正確格式化屬性標籤（與臭豆腐一模一樣）
   let statStr = "";
-  if (item.atk) statStr = `攻擊力 +${item.atk}`;
-  else if (item.def) statStr = `防禦力 +${item.def}`;
-  else if (item.type === "food") statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
-  else statStr = `基礎材料 (產地: ${getItemDropLocationName(item.id)})`;
+  if (item.type === "food") {
+    statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
+  } else if (item.atk) {
+    statStr = `攻擊力 +${item.atk}`;
+  } else if (item.def) {
+    statStr = `防禦力 +${item.def}`;
+  } else {
+    statStr = `基礎材料 (產地: ${getItemDropLocationName(item.id)})`;
+  }
   if (statEl) statEl.textContent = statStr;
 
   if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資。";
@@ -739,7 +741,7 @@ function showItemInfoModal(item, categoryText, isFromBag) {
 
   let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2 text-xs">`;
 
-  // 💡 1. 任何道具都可以「直接追蹤」按鈕列
+  // 追蹤按鈕列
   treeHTML += `
     <div class="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
       <span class="text-[11px] text-slate-300 font-bold">追蹤此物品</span>
@@ -749,7 +751,7 @@ function showItemInfoModal(item, categoryText, isFromBag) {
     </div>
   `;
 
-  // 2. 下位合成展示
+  // 下位合成
   if (downstream) {
     const matBadges = downstream.materials.map(mId => {
       const mName = getItemDisplayName(mId);
@@ -766,7 +768,7 @@ function showItemInfoModal(item, categoryText, isFromBag) {
     `;
   }
 
-  // 3. 上位合成展示
+  // 上位合成
   if (upstream.length > 0) {
     const upstreamBadges = upstream.map(u => {
       const upName = u.resultItem ? u.resultItem.name : u.resultId;
