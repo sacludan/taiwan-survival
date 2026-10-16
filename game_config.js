@@ -1,12 +1,9 @@
 /**
  * 【總合配置檔 game_config.js】
- * v62：即時掛載並聯集所有武器、防具、材料與食物資料庫
  */
 const GAME_DATA = {
   get zones() {
-    return (typeof MAPS_DATA !== 'undefined' && MAPS_DATA.zones) ? MAPS_DATA.zones : [
-      { id: "ly", name: "立法院", icon: "🏛️", x: 50, y: 52, drops: [] }
-    ];
+    return (typeof MAPS_DATA !== 'undefined' && MAPS_DATA.zones) ? MAPS_DATA.zones : [];
   },
   get recipes() {
     return (typeof RECIPES_DATA !== 'undefined' && RECIPES_DATA.recipes) ? RECIPES_DATA.recipes : [];
