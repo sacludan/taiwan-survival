@@ -1,10 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * v58：
- * 1. 100% 復原直式台北生存島 SVG 海岸線與道路網格，且不顯示任何區域角色人數
- * 2. 100% 復原原本的「測試模式 (無縮圈 / 無NPC)」，並新增「角色測試模式 (唯一地圖：立法院)」
- * 3. 100% 復原物品詳細彈窗、上下位合成樹、追蹤系統與桌面/手機拖曳功能
- * 4. 完整支援 9 位角色主被動讀秒、超哥同區破防 -20%、韓國魚雷達警告、王世間 12 秒結束算 CD
+ * v61：修復搜刮物資存入背包與裝備欄邏輯，並過濾地圖重複搜刮提示
  */
 
 const ItemRegistry = {
@@ -73,7 +69,8 @@ const ItemRegistry = {
 
   getRarity(id) {
     const resolvedId = this.ALIAS[id] || id;
-    const level = this.RARITY_MAP[resolvedId] || 1;
+    const poolItem = this.get(resolvedId);
+    const level = (poolItem && poolItem.rarity) ? poolItem.rarity : (this.RARITY_MAP[resolvedId] || 1);
     return { level, ...this.RARITY[level] };
   }
 };
@@ -141,7 +138,6 @@ function createRuntimeUnit(template, startZoneId) {
   return unit;
 }
 
-// 韓國魚被動【禿子跟著月亮走】
 function checkHanguoyuRadar(enteringUnit, targetZoneId) {
   const p = state.player;
   if (!p || !p.alive || p.id !== "hanguoyu") return;
@@ -250,7 +246,6 @@ function getMissingTrackedMaterials() {
   }
 }
 
-// 檢查同地區是否有其他存活的【超哥】觸發「超派～」減防 20%
 function isChaoGeAuraAffecting(unit) {
   if (!unit || !state.player) return false;
   const allUnits = [state.player, ...(state.ais || [])];
@@ -320,11 +315,9 @@ function initGame(mode = "normal", selectedPlayerId = "zhugouliang", customTestB
 
   const fullMaps = (typeof MAPS_DATA !== 'undefined' && Array.isArray(MAPS_DATA.zones)) ? MAPS_DATA.zones : [];
   if (mode === "char_test") {
-    // 角色測試模式：唯一地圖僅限【立法院】
     const lyZone = fullMaps.find(z => z.id === "ly") || { id: "ly", name: "立法院", icon: "🏛️", x: 50, y: 52, drops: [] };
     state.activeZones = [lyZone];
   } else {
-    // 正常對戰 & 原版測試模式：全島 22 區全開
     state.activeZones = [...fullMaps];
   }
 
@@ -334,17 +327,13 @@ function initGame(mode = "normal", selectedPlayerId = "zhugouliang", customTestB
     state.pendingCloseZones = [];
   }
 
-  // 1. 建立玩家角色
   const pTemplate = GAME_CHARACTERS[selectedPlayerId] || Object.values(GAME_CHARACTERS)[0];
   state.player = createRuntimeUnit(pTemplate, "ly");
 
-  // 2. 建立電腦 AI 陣列
   state.ais = [];
   if (mode === "sandbox") {
-    // 原版測試模式 (無縮圈 / 無NPC)
     DEV_CONFIG.enableNPC = false;
   } else if (mode === "char_test") {
-    // 立法院角色測試模式：依勾選名單放入立法院
     customTestBotIds.forEach(botId => {
       if (botId !== state.player.id && GAME_CHARACTERS[botId]) {
         state.ais.push(createRuntimeUnit(GAME_CHARACTERS[botId], "ly"));
@@ -352,7 +341,6 @@ function initGame(mode = "normal", selectedPlayerId = "zhugouliang", customTestB
     });
     DEV_CONFIG.enableNPC = state.ais.length > 0;
   } else {
-    // 正常對戰模式：電腦使用剩下的 8 個角色（完全不重複），隨機散佈在全島各區
     const remainingIds = Object.keys(GAME_CHARACTERS).filter(id => id !== state.player.id);
     const shuffledZones = [...state.activeZones].sort(() => Math.random() - 0.5);
     remainingIds.forEach((botId, idx) => {
@@ -409,7 +397,7 @@ function advanceZoneRound() {
     });
 
     if (state.currentRoundIdx === 5) {
-      addLog(`☠️ 【進入第 2 天】管制升級！所有禁區即刻起「永久封閉」，不再解鎖！`, "text-rose-500 font-black");
+      addLog(`☠️ 【進入第 2 天】管制升級！所有禁區即刻起條件「永久封閉」，不再解鎖！`, "text-rose-500 font-black");
     } else {
       addLog(`🚫 【永久禁區追加】全島已累計封閉 ${state.closedZones.length} 個區域！`, "text-rose-500 font-bold");
     }
@@ -445,7 +433,6 @@ function tickUnitTimers1s(unit) {
   if (unit.reflectRemain > 0) unit.reflectRemain--;
   if (unit.milkDefBuffRemain > 0) unit.milkDefBuffRemain--;
 
-  // 王世間【Over my dead body】：12 秒結束後才開始算冷卻
   if (unit.stealthRemain > 0) {
     unit.stealthRemain--;
     if (unit.stealthRemain === 0) {
@@ -458,7 +445,6 @@ function tickUnitTimers1s(unit) {
     unit.skillCdRemain--;
   }
 
-  // 蔣晚安【問A答B】閃避冷卻
   if (unit.id === "jiangwanan" && !unit.dodgeReady && unit.dodgeCdRemain > 0) {
     unit.dodgeCdRemain--;
     if (unit.dodgeCdRemain === 0) {
@@ -485,7 +471,6 @@ function startGameLoop() {
       tickUnitTimers1s(state.player);
       state.ais.forEach(ai => tickUnitTimers1s(ai));
 
-      // 每 3 秒玩家與存活 AI 自動回復 5 點體力
       if (state.timeSec % 3 === 0) {
         if (state.player.sp < state.player.maxSp) {
           state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
@@ -596,7 +581,6 @@ function triggerSearch() {
   state.isSearching = true;
   updateUI();
 
-  // 王世間【從從容容】：主動技期間搜刮速度變 1.5 倍（3000ms -> 2000ms）
   const totalSearchMs = (p.id === "wangshijian" && p.stealthRemain > 0) ? 2000 : 3000;
 
   const promptText = document.getElementById("search-prompt-text");
@@ -634,7 +618,7 @@ function lootMultipleItemsForPlayer(count = 1) {
   const dropPool = (currentZoneObj.drops && currentZoneObj.drops.length > 0) ? currentZoneObj.drops : [];
 
   if (dropPool.length === 0) {
-    addLog(`🔍 搜刮了周遭，沒有發現任何人員或物資（物資待重新設計）。`, "text-slate-400");
+    addLog(`🔍 搜刮了周遭，沒有發現任何物資。`, "text-slate-400");
     return;
   }
 
@@ -644,9 +628,10 @@ function lootMultipleItemsForPlayer(count = 1) {
     if (!item) continue;
 
     const slot = item.type;
-    if (p.equip && p.equip[slot] === null) {
+    // 修正：檢查裝備欄位是否為空，若空則直接裝備；否則放入背包
+    if (p.equip && ['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(slot) && p.equip[slot] === null) {
       p.equip[slot] = item;
-      addLog(`搜刮獲得並裝備【${item.name}】！`, "text-amber-300 font-bold");
+      addLog(`搜刮獲得並自動裝備【${item.name}】！`, "text-amber-300 font-bold");
     } else if (p.bag.length < 6) {
       p.bag.push(item.id);
       addLog(`搜刮獲得【${item.name}】！`, "text-emerald-300");
@@ -659,7 +644,6 @@ function lootMultipleItemsForPlayer(count = 1) {
 function executeSearchFinish() {
   const p = state.player;
 
-  // 若玩家未處於王世間【Over my dead body】隱蔽期間，60% 機率搜到同區域未隱蔽的存活 AI
   if ((p.stealthRemain || 0) <= 0 && DEV_CONFIG.enableNPC) {
     const sameZoneAIs = state.ais.filter(a =>
       a && a.alive && a.zone === p.zone && (a.stealthRemain || 0) <= 0
@@ -913,7 +897,7 @@ function renderCraftBookList() {
   });
 
   if (allItems.length === 0) {
-    listEl.innerHTML = `<div class="text-center text-slate-500 py-8 text-xs">此品級暫無登錄物資（等待重新設計）</div>`;
+    listEl.innerHTML = `<div class="text-center text-slate-500 py-8 text-xs">此品級暫無登錄物資</div>`;
     return;
   }
 
@@ -989,7 +973,6 @@ function renderCraftBookList() {
   }).join("");
 }
 
-// 桌面與手機觸控拖曳系統 (100% 完整保留)
 let draggedBagIndex = null;
 
 function handleDragStart(e, index) {
@@ -1133,7 +1116,6 @@ function applyItemDropToRed(bagIdx) {
   if (item.type === "food") {
     let healHp = item.hp || 0;
     const healSp = item.sp || 0;
-    // 亞洲桶神被動【鼎王吃到飽】：食物補血效果 +20%
     if (p.id === "yazhoutongshen") {
       healHp = Math.round(healHp * 1.2);
     }
@@ -1199,7 +1181,6 @@ function inspectEquipSlot(slotKey) {
   showItemInfoModal(item, slotLabels[slotKey] || "裝備欄位", false);
 }
 
-// 100% 復原 showItemInfoModal 完整內容
 function showItemInfoModal(item, categoryText, isFromBag) {
   const modal = document.getElementById("item-info-modal");
   const catEl = document.getElementById("info-item-category");
@@ -1391,7 +1372,6 @@ function renderEquipSixGrid(p) {
   }).join("");
 }
 
-// 💡 100% 復原直式台北生存島 SVG 與乾淨地標（完全不顯示任何當前角色人數）
 function renderTacticalMap() {
   const container = document.getElementById("map-nodes-container");
   if (!container || !state.player) return;
@@ -1675,10 +1655,10 @@ function updateUI() {
     const zoneTitle = document.getElementById("zone-title");
     if (zoneTitle && zObj) zoneTitle.textContent = `${zObj.icon || ''} ${zObj.name}`;
 
-    // 💡 徹底恢復原本乾淨的物資顯示，絕不顯示同區角色！
     const zoneDrops = document.getElementById("zone-drops");
     if (zoneDrops && zObj) {
-      const dropNames = (zObj.drops || []).map(id => getItemDisplayName(id));
+      const uniqueDropIds = [...new Set(zObj.drops || [])];
+      const dropNames = uniqueDropIds.map(id => getItemDisplayName(id));
       zoneDrops.textContent = dropNames.length > 0
         ? `可搜刮：${dropNames.join("、")}`
         : `可搜刮：暫無配置物資`;
