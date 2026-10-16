@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 完整終極版：保留原版 1700+ 行所有完整功能，並修復 22 區地圖、物品圖鑑與背包/裝備欄綁定
+ * 完整終極版：保留原版所有完整功能，並修復 22 區地圖、物品圖鑑與目標追蹤系統
  */
 
 const ItemRegistry = {
@@ -742,32 +742,30 @@ function renderTargetTracker() {
 
   if (!state.trackedItemId) {
     trackerBox.classList.add("hidden");
+    trackerBox.innerHTML = "";
     return;
   }
 
   const targetItem = getSafeItem(state.trackedItemId);
   if (!targetItem) {
     trackerBox.classList.add("hidden");
+    trackerBox.innerHTML = "";
     return;
   }
 
   const rarity = ItemRegistry.getRarity(targetItem.id);
   trackerBox.classList.remove("hidden");
   
-  trackerBox.innerHTML = `
+  let html = `
     <div class="flex justify-between items-center border-b border-slate-700/50 pb-1 mb-1">
-      <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase flex items-center gap-1">
-        <span>🎯 目標追蹤</span>
-      </span>
+      <span class="text-[9px] font-black tracking-wider text-amber-400 uppercase">🎯 目標追蹤</span>
       <div class="flex items-center gap-1">
         <span class="text-[11px] font-bold ${rarity.text} truncate max-w-[95px]">${targetItem.name}</span>
-        <button onclick="clearTrackedItem(event)" class="text-slate-400 hover:text-rose-400 text-xs px-1 font-mono transition" title="取消追蹤">✕</button>
+        <button onclick="clearTrackedItem(event)" class="text-slate-400 hover:text-rose-400 text-xs px-1 font-mono transition">✕</button>
       </div>
     </div>
-    <div id="tracker-materials-list-inner" class="space-y-0.5 text-[10px] font-mono text-slate-300"></div>
+    <div class="space-y-0.5 text-[10px] font-mono text-slate-300">
   `;
-
-  const listInner = document.getElementById("tracker-materials-list-inner");
 
   const ownedIds = [...(state.player.bag || [])].map(id => ItemRegistry.ALIAS[id] || id);
   if (state.player.equip) {
@@ -780,7 +778,7 @@ function renderTargetTracker() {
   const recipe = recipes.find(r => (ItemRegistry.ALIAS[r.result] || r.result) === targetItem.id);
 
   if (recipe) {
-    listInner.innerHTML = recipe.materials.map(mId => {
+    recipe.materials.forEach(mId => {
       const resolvedMat = ItemRegistry.ALIAS[mId] || mId;
       const isOwned = ownedIds.includes(resolvedMat);
       const mName = getItemDisplayName(resolvedMat);
@@ -788,26 +786,25 @@ function renderTargetTracker() {
       const mRarity = ItemRegistry.getRarity(resolvedMat);
 
       if (isOwned) {
-        return `
+        html += `
           <div class="flex justify-between items-center text-emerald-400">
             <span class="truncate max-w-[110px] font-bold">✔ ${mName}</span>
             <span class="text-[9px] text-emerald-500 font-mono">已擁有</span>
           </div>
         `;
       } else {
-        return `
+        html += `
           <div class="flex justify-between items-center text-rose-300">
             <span class="truncate max-w-[95px] ${mRarity.text}">✖ ${mName}</span>
             <span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[85px] font-bold">⭐${loc}</span>
           </div>
         `;
       }
-    }).join("");
+    });
   } else {
     const loc = getItemDropLocationName(targetItem.id);
     const count = ownedIds.filter(id => id === targetItem.id).length;
-
-    listInner.innerHTML = `
+    html += `
       <div class="space-y-0.5 pt-0.5">
         <div class="flex justify-between text-slate-300">
           <span>產地:</span>
@@ -820,6 +817,9 @@ function renderTargetTracker() {
       </div>
     `;
   }
+
+  html += `</div>`;
+  trackerBox.innerHTML = html;
 }
 
 function getItemRecipeTree(itemId) {
@@ -1265,6 +1265,7 @@ function renderTacticalMap() {
     let pillClass = "bg-slate-950/95 border border-amber-700/60 text-slate-100 shadow-md";
     let iconFilter = "drop-shadow-[0_3px_4px_rgba(0,0,0,0.9)]";
     let pinTop = "";
+    let starBadge = "";
 
     if (isCurrent) {
       pillClass = "bg-sky-950 border-2 border-sky-400 text-white shadow-[0_0_12px_rgba(56,189,248,0.7)]";
@@ -1274,12 +1275,16 @@ function renderTacticalMap() {
       iconFilter = "grayscale opacity-35";
     } else if (hasNeededMaterial) {
       pillClass = "bg-amber-950/95 border-2 border-amber-300 text-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.75)] animate-pulse";
+      starBadge = `<span class="absolute -top-2 -right-2 text-xs z-20 animate-bounce">⭐</span>`;
     }
 
     return `
       <div onclick="moveZone('${z.id}')" style="left: ${z.x}%; top: ${z.y}%;" class="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer select-none transition-transform active:scale-90 z-10 hover:scale-105">
         ${pinTop}
-        <div class="text-xl leading-none mb-0.5 ${iconFilter}">${z.icon || '🏢'}</div>
+        <div class="relative">
+          ${starBadge}
+          <div class="text-xl leading-none mb-0.5 ${iconFilter}">${z.icon || '🏢'}</div>
+        </div>
         <div class="px-1.5 py-0.5 rounded-md flex items-center whitespace-nowrap ${pillClass}">
           <span class="text-[10px] font-black tracking-tight">${z.name}</span>
         </div>
