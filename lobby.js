@@ -1,12 +1,13 @@
 /**
  * 【模組：遊戲主大廳 lobby.js】
- * v58：支援首頁 9 選 1 角色選擇，以及角色測試模式（立法院單一地圖 + 自選電腦對手）
+ * v58：完整保留原版測試模式 (sandbox)，並支援 9 選 1 角色選擇與立法院角色測試模式 (char_test)
  */
 const LobbyManager = {
   selectedPlayerId: "zhugouliang",
   selectedTestBotIds: [],
 
   init() {
+    if (typeof GAME_CHARACTERS === "undefined") return;
     const keys = Object.keys(GAME_CHARACTERS);
     if (keys.length > 0 && !GAME_CHARACTERS[this.selectedPlayerId]) {
       this.selectedPlayerId = keys[0];
@@ -121,12 +122,12 @@ const LobbyManager = {
         <button onclick="LobbyManager.toggleTestBot('${c.id}')"
                 class="p-2 rounded-xl border text-left transition active:scale-95 flex items-center justify-between ${
                   isChecked
-                    ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200 shadow'
+                    ? 'bg-indigo-950/70 border-indigo-500 text-indigo-200 shadow'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
                 }">
           <div>
             <div class="text-xs font-black ${isChecked ? 'text-white' : 'text-slate-300'}">${c.name}</div>
-            <div class="text-[9px] ${isChecked ? 'text-emerald-400' : 'text-slate-500'}">${c.title}</div>
+            <div class="text-[9px] ${isChecked ? 'text-indigo-400' : 'text-slate-500'}">${c.title}</div>
           </div>
           <span class="text-xs font-black">${isChecked ? '✔' : '＋'}</span>
         </button>
@@ -134,7 +135,11 @@ const LobbyManager = {
     }).join("");
   },
 
-  startGame(isSandbox = false) {
+  // mode 支援: 'normal' (正常對戰), 'sandbox' (原版無縮圈無NPC測試), 'char_test' (立法院角色測試)
+  startGame(mode = 'normal') {
+    if (mode === true) mode = 'sandbox';
+    if (mode === false) mode = 'normal';
+
     this.closeTestSetupModal();
 
     const lobbyScreen = document.getElementById("lobby-screen");
@@ -144,7 +149,7 @@ const LobbyManager = {
     if (gameScreen) gameScreen.classList.remove("hidden");
 
     if (typeof initGame === "function") {
-      initGame(isSandbox, this.selectedPlayerId, [...this.selectedTestBotIds]);
+      initGame(mode, this.selectedPlayerId, [...this.selectedTestBotIds]);
     } else {
       console.error("找不到 initGame 函式！");
     }
