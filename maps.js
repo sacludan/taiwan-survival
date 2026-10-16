@@ -1,6 +1,6 @@
 /**
  * 【模組：地圖資料庫 maps.js】
- * 絕對完整 22 區版本
+ * 終極完整 22 區版本（已修正所有地標座標，確保基隆與九份獨立不重疊）
  */
 const MAPS_DATA = {
   zones: [
@@ -22,8 +22,8 @@ const MAPS_DATA = {
     { id: "xinyi", name: "信義夜店區", icon: "🥂", x: 76, y: 69, drops: ["whiskey", "condom", "money", "fake_gold_chain", "dirty_bracelet", "lighter", "betel_nut", "fresh_milk", "black_tea"] },
     { id: "sanchong", name: "三重埔", icon: "🌉", x: 17, y: 31, drops: ["exhaust_pipe", "melon_helmet", "betel_nut", "quicklime", "dunga", "white_slippers", "rusty_nail", "scrap_iron", "wooden_stick", "lighter"] },
     { id: "wugu_ind", name: "五股工業區", icon: "🛠️", x: 24, y: 84, drops: ["rusty_nail", "scrap_iron", "cloth_gloves", "polydar", "tape", "box_cutter", "exhaust_pipe", "rain_boots", "iron_pot"] },
-    { id: "keelung", name: "基隆廟口", icon: "🐟", x: 53, y: 82, drops: ["rusty_cleaver", "iron_pot", "pork", "rice", "garlic", "soy_sauce", "cooking_wine", "rubber_gloves", "rain_boots", "incense"] },
-    { id: "jiufen", name: "九份老街", icon: "🌧️", x: 53, y: 82, drops: ["light_raincoat", "straw_hat", "robe", "ancestral_recipe", "black_tea", "amulet", "joss_paper", "incense", "straw_sandals"] },
+    { id: "keelung", name: "基隆廟口", icon: "🐟", x: 38, y: 85, drops: ["rusty_cleaver", "iron_pot", "pork", "rice", "garlic", "soy_sauce", "cooking_wine", "rubber_gloves", "rain_boots", "incense"] },
+    { id: "jiufen", name: "九份老街", icon: "🌧️", x: 65, y: 85, drops: ["light_raincoat", "straw_hat", "robe", "ancestral_recipe", "black_tea", "amulet", "joss_paper", "incense", "straw_sandals"] },
     { id: "neihu", name: "內湖科學園區", icon: "🖥️", x: 80, y: 32, drops: ["nano_wafer", "battery", "camera_module", "wallpaper_stock", "netizen_cert", "shirt", "reading_glasses", "red_pen", "expired_milk"] },
     { id: "market", name: "果菜批發市場", icon: "🥬", x: 20, y: 58, drops: ["rice", "pork", "tofu", "egg", "garlic", "betel_nut", "quicklime", "polydar", "yellow_vest", "plastic_bag", "deed"] }
   ]
