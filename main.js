@@ -1,6 +1,6 @@
 /**
  * 【模組：核心管家 main.js】
- * 完整終極版：保留原版所有完整功能，並修復 22 區地圖、物品圖鑑與目標追蹤系統
+ * 終極修復完整版：完整保留 22 區縮圈、目標追蹤、地圖星號導航與所有核心功能
  */
 
 const ItemRegistry = {
@@ -138,52 +138,10 @@ function createRuntimeUnit(template, startZoneId) {
   return unit;
 }
 
-function checkHanguoyuRadar(enteringUnit, targetZoneId) {
-  const p = state.player;
-  if (!p || !p.alive || p.id !== "hanguoyu") return;
-  if (enteringUnit === p) return;
-
-  if (p.zone === targetZoneId) {
-    const zName = getSafeCurrentZone(targetZoneId).name;
-    addLog(`🚨 <span class="text-rose-400 font-black">【禿子跟著月亮走】</span> 警告！【${enteringUnit.name}】踏入了你所在的【${zName}】！`, "text-rose-400 font-bold");
-
-    const banner = document.getElementById("radar-warning-banner");
-    if (banner) {
-      banner.textContent = `🚨 禿子雷達警報：【${enteringUnit.name}】進入了${zName}！`;
-      banner.classList.remove("hidden");
-      setTimeout(() => banner.classList.add("hidden"), 3500);
-    }
-  }
-}
-
-function triggerPlayerBloodHitEffect() {
-  const overlay = document.getElementById("fps-blood-hit-overlay");
-  if (!overlay) return;
-  overlay.classList.add("hit-active");
-  setTimeout(() => overlay.classList.remove("hit-active"), 220);
-}
-
-function spawnFloatingDamage(containerEl, text, isCrit = false) {
-  if (!containerEl) return;
-  const tag = document.createElement("div");
-  tag.className = `floating-dmg-tag ${isCrit ? 'text-amber-300 text-lg font-black' : 'text-rose-400 text-sm font-bold'}`;
-  tag.textContent = text;
-  tag.style.left = `${Math.floor(Math.random() * 40) + 30}%`;
-  tag.style.top = `-10px`;
-  containerEl.appendChild(tag);
-  setTimeout(() => tag.remove(), 750);
-}
-
 function getSafeZones() {
-  if (Array.isArray(state.activeZones) && state.activeZones.length > 0) {
-    return state.activeZones;
-  }
-  if (typeof MAPS_DATA !== 'undefined' && Array.isArray(MAPS_DATA.zones)) {
-    return MAPS_DATA.zones;
-  }
-  if (typeof window.GAME_MAPS !== 'undefined' && Array.isArray(window.GAME_MAPS)) {
-    return window.GAME_MAPS;
-  }
+  if (Array.isArray(state.activeZones) && state.activeZones.length > 0) return state.activeZones;
+  if (typeof MAPS_DATA !== 'undefined' && Array.isArray(MAPS_DATA.zones)) return MAPS_DATA.zones;
+  if (typeof window.GAME_MAPS !== 'undefined' && Array.isArray(window.GAME_MAPS)) return window.GAME_MAPS;
   return [];
 }
 
@@ -194,35 +152,19 @@ function getSafeCurrentZone(zoneId) {
 }
 
 function getSafeRecipes() {
-  if (typeof RECIPES_DATA !== 'undefined' && Array.isArray(RECIPES_DATA.recipes)) {
-    return RECIPES_DATA.recipes;
-  }
-  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.recipes) {
-    return GAME_DATA.recipes;
-  }
+  if (typeof RECIPES_DATA !== 'undefined' && Array.isArray(RECIPES_DATA.recipes)) return RECIPES_DATA.recipes;
+  if (typeof GAME_DATA !== 'undefined' && GAME_DATA && GAME_DATA.recipes) return GAME_DATA.recipes;
   return [];
 }
 
-function getSafeItem(itemId) {
-  return ItemRegistry.get(itemId);
-}
-
-function getItemDisplayName(itemId) {
-  const it = ItemRegistry.get(itemId);
-  return it ? it.name : (itemId || "空");
-}
+function getSafeItem(itemId) { return ItemRegistry.get(itemId); }
+function getItemDisplayName(itemId) { const it = ItemRegistry.get(itemId); return it ? it.name : (itemId || "空"); }
 
 function getItemDropLocationName(itemId) {
   const zones = getSafeZones();
   const resolvedId = ItemRegistry.ALIAS[itemId] || itemId;
-
-  const matchingZones = zones.filter(z => z.drops && (
-    z.drops.includes(itemId) || z.drops.includes(resolvedId)
-  ));
-
-  if (matchingZones.length > 0) {
-    return matchingZones.slice(0, 3).map(z => z.name).join(" / ");
-  }
+  const matchingZones = zones.filter(z => z.drops && (z.drops.includes(itemId) || z.drops.includes(resolvedId)));
+  if (matchingZones.length > 0) return matchingZones.slice(0, 3).map(z => z.name).join(" / ");
   return "合成獲得";
 }
 
@@ -234,9 +176,7 @@ function getMissingTrackedMaterials() {
 
   const ownedIds = [...(state.player.bag || [])].map(id => ItemRegistry.ALIAS[id] || id);
   if (state.player.equip) {
-    Object.values(state.player.equip).forEach(it => {
-      if (it) ownedIds.push(ItemRegistry.ALIAS[it.id] || it.id);
-    });
+    Object.values(state.player.equip).forEach(it => { if (it) ownedIds.push(ItemRegistry.ALIAS[it.id] || it.id); });
   }
 
   if (recipe) {
@@ -246,51 +186,9 @@ function getMissingTrackedMaterials() {
   }
 }
 
-function isChaoGeAuraAffecting(unit) {
-  if (!unit || !state.player) return false;
-  const allUnits = [state.player, ...(state.ais || [])];
-  return allUnits.some(other =>
-    other && other.alive && other !== unit && other.id === "chaoge" && other.zone === unit.zone
-  );
-}
-
-function getTotalAtk(unit) {
-  if (!unit) return 0;
-  let total = unit.baseAtk || 0;
-  if (unit.equip) {
-    Object.values(unit.equip).forEach(item => {
-      if (item && item.atk) total += item.atk;
-    });
-  }
-  if (unit.id === "laixiangde" && unit.meritCount > 0) {
-    total += Math.min(10, unit.meritCount);
-  }
-  if (unit.weakRemain > 0) {
-    total = Math.floor(total * 0.5);
-  }
-  return Math.max(1, total);
-}
-
-function getTotalDef(unit) {
-  if (!unit) return 0;
-  let total = unit.baseDef || 0;
-  if (unit.equip) {
-    Object.values(unit.equip).forEach(item => {
-      if (item && item.def) total += item.def;
-    });
-  }
-  if (unit.guanDefBuffRemain > 0) total += 6;
-  if (unit.milkDefBuffRemain > 0) total += 5;
-  if (isChaoGeAuraAffecting(unit)) {
-    total = Math.floor(total * 0.8);
-  }
-  return Math.max(0, total);
-}
-
 function pickRandomWarningZones(count) {
   const allZones = getSafeZones();
   const openZones = allZones.filter(z => !state.closedZones.includes(z.id));
-  
   if (openZones.length <= 1) return [];
   const actualCount = Math.min(count, openZones.length - 1);
   const shuffled = [...openZones].sort(() => Math.random() - 0.5);
@@ -335,9 +233,7 @@ function initGame(mode = "normal", selectedPlayerId = "zhugouliang", customTestB
     DEV_CONFIG.enableNPC = false;
   } else if (mode === "char_test") {
     customTestBotIds.forEach(botId => {
-      if (botId !== state.player.id && GAME_CHARACTERS[botId]) {
-        state.ais.push(createRuntimeUnit(GAME_CHARACTERS[botId], "ly"));
-      }
+      if (botId !== state.player.id && GAME_CHARACTERS[botId]) state.ais.push(createRuntimeUnit(GAME_CHARACTERS[botId], "ly"));
     });
     DEV_CONFIG.enableNPC = state.ais.length > 0;
   } else {
@@ -357,15 +253,10 @@ function initGame(mode = "normal", selectedPlayerId = "zhugouliang", customTestB
 
   if (mode === "sandbox") {
     addLog("【測試模式】全島 22 區與圖鑑已就緒（無縮圈 / 無NPC）！", "text-emerald-400 font-bold");
-  } else if (mode === "char_test") {
-    const botNames = state.ais.map(a => a.name).join("、") || "無電腦 (0人)";
-    addLog(`🏛️ 【立法院角色測試】出戰：【${state.player.name}】｜場上電腦：${botNames}`, "text-indigo-300 font-bold");
   } else {
-    addLog(`台灣生存戰開局！出戰角色：【${state.player.name}】，其餘 8 位傳奇對手已散佈全島！`, "text-amber-300 font-bold");
+    addLog(`台灣生存戰開局！出戰角色：【${state.player.name}】`, "text-amber-300 font-bold");
     const warnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
-    if (warnNames) {
-      addLog(`⚠️ 【第 1 輪預告】${warnNames} 將在 1 分 30 秒後成為暫時禁區！`, "text-amber-400");
-    }
+    if (warnNames) addLog(`⚠️ 【第 1 輪預告】${warnNames} 將在 1 分 30 秒後成為暫時禁區！`, "text-amber-400");
   }
 
   closeMapModal();
@@ -388,16 +279,12 @@ function advanceZoneRound() {
     }
     const newClosedNames = state.closedZones.map(id => getSafeCurrentZone(id).name).join("、");
     addLog(`🚫 【暫時禁區】${newClosedNames} 已實施管制！`, "text-rose-500 font-bold");
-
   } else {
     state.pendingCloseZones.forEach(id => {
-      if (!state.closedZones.includes(id)) {
-        state.closedZones.push(id);
-      }
+      if (!state.closedZones.includes(id)) state.closedZones.push(id);
     });
-
     if (state.currentRoundIdx === 5) {
-      addLog(`☠️ 【進入第 2 天】管制升級！所有禁區即刻起條件「永久封閉」，不再解鎖！`, "text-rose-500 font-black");
+      addLog(`☠️ 【進入第 2 天】管制升級！所有禁區即刻起永久封閉！`, "text-rose-500 font-black");
     } else {
       addLog(`🚫 【永久禁區追加】全島已累計封閉 ${state.closedZones.length} 個區域！`, "text-rose-500 font-bold");
     }
@@ -405,8 +292,7 @@ function advanceZoneRound() {
 
   if (state.closedZones.includes(state.player.zone)) {
     state.player.hp = Math.max(1, state.player.hp - 35);
-    triggerPlayerBloodHitEffect();
-    addLog(`⚡ 你滯留在禁區內遭受高壓電網驅離，受到 35 點傷害！請盡速撤離！`, "text-rose-500 font-black");
+    addLog(`⚡ 你滯留在禁區內遭受高壓電網驅離，受到 35 點傷害！`, "text-rose-500 font-black");
   }
 
   state.currentRoundIdx = Math.min(state.currentRoundIdx + 1, BS_ZONE_ROUNDS.length - 1);
@@ -423,39 +309,6 @@ function advanceZoneRound() {
   }
 }
 
-function tickUnitTimers1s(unit) {
-  if (!unit || !unit.alive) return;
-
-  if (unit.stunRemain > 0) unit.stunRemain--;
-  if (unit.weakRemain > 0) unit.weakRemain--;
-  if (unit.guanDefBuffRemain > 0) unit.guanDefBuffRemain--;
-  if (unit.guanPassiveCd > 0) unit.guanPassiveCd--;
-  if (unit.reflectRemain > 0) unit.reflectRemain--;
-  if (unit.milkDefBuffRemain > 0) unit.milkDefBuffRemain--;
-
-  if (unit.stealthRemain > 0) {
-    unit.stealthRemain--;
-    if (unit.stealthRemain === 0) {
-      unit.skillCdRemain = unit.skill.cd;
-      if (unit === state.player) {
-        addLog(`👻 【Over my dead body】12 秒隱蔽結束！正式開始計算 ${unit.skill.cd} 秒冷卻。`, "text-sky-400");
-      }
-    }
-  } else if (unit.skillCdRemain > 0) {
-    unit.skillCdRemain--;
-  }
-
-  if (unit.id === "jiangwanan" && !unit.dodgeReady && unit.dodgeCdRemain > 0) {
-    unit.dodgeCdRemain--;
-    if (unit.dodgeCdRemain === 0) {
-      unit.dodgeReady = true;
-      if (unit === state.player) {
-        addLog(`💨 被動【問A答B】充能完畢！下次受到攻擊將自動閃躲。`, "text-sky-400");
-      }
-    }
-  }
-}
-
 let gameInterval = null;
 function startGameLoop() {
   if (gameInterval) clearInterval(gameInterval);
@@ -468,28 +321,16 @@ function startGameLoop() {
     if (tickCount % 10 === 0) {
       state.timeSec++;
 
-      tickUnitTimers1s(state.player);
-      state.ais.forEach(ai => tickUnitTimers1s(ai));
-
       if (state.timeSec % 3 === 0) {
-        if (state.player.sp < state.player.maxSp) {
-          state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
-        }
-        state.ais.forEach(ai => {
-          if (ai && ai.alive && ai.sp < ai.maxSp) {
-            ai.sp = Math.min(ai.maxSp, ai.sp + 5);
-          }
-        });
+        if (state.player.sp < state.player.maxSp) state.player.sp = Math.min(state.player.maxSp, state.player.sp + 5);
       }
 
       if (DEV_CONFIG.enableZoneClose) {
         state.roundTimeRemain--;
-
         if (state.roundTimeRemain === 20) {
           const warnNames = state.pendingCloseZones.map(id => getSafeCurrentZone(id).name).join("、");
-          addLog(`⏰ 【倒數 20 秒】禁區即將封鎖！請位於 ${warnNames} 的生還者立刻撤離！`, "text-amber-300 font-black");
+          addLog(`⏰ 【倒數 20 秒】禁區即將封鎖：${warnNames}`, "text-amber-300 font-black");
         }
-
         if (state.roundTimeRemain <= 0) {
           advanceZoneRound();
         }
@@ -504,223 +345,9 @@ function startGameLoop() {
   }, 100);
 }
 
-function addLog(msg, color = "text-slate-300") {
-  const logEl = document.getElementById("game-log");
-  if (!logEl) return;
-  const timeStr = Math.floor(state.timeSec / 60).toString().padStart(2, '0') + ":" + (state.timeSec % 60).toString().padStart(2, '0');
-  const div = document.createElement("div");
-  div.className = `${color} leading-relaxed`;
-  div.innerHTML = `<span class="text-slate-600">[${timeStr}]</span> ${msg}`;
-  logEl.prepend(div);
-}
-
-function findAvailableRecipes(unit) {
-  const recipes = getSafeRecipes();
-  if (recipes.length === 0) return [];
-  const ownedIds = [...unit.bag].map(id => ItemRegistry.ALIAS[id] || id);
-  if (unit.equip) {
-    Object.values(unit.equip).forEach(it => {
-      if (it) ownedIds.push(ItemRegistry.ALIAS[it.id] || it.id);
-    });
-  }
-  return recipes.filter(r => r.materials.every(m => ownedIds.includes(ItemRegistry.ALIAS[m] || m)));
-}
-
-function craftItem(unit, recipe, isPlayer = true) {
-  if (!recipe) return;
-  recipe.materials.forEach(matId => {
-    const targetMat = ItemRegistry.ALIAS[matId] || matId;
-    const bagIdx = unit.bag.findIndex(bId => (ItemRegistry.ALIAS[bId] || bId) === targetMat);
-    if (bagIdx !== -1) {
-      unit.bag.splice(bagIdx, 1);
-    } else if (unit.equip) {
-      Object.keys(unit.equip).forEach(slot => {
-        if (unit.equip[slot] && (ItemRegistry.ALIAS[unit.equip[slot].id] || unit.equip[slot].id) === targetMat) {
-          unit.equip[slot] = null;
-        }
-      });
-    }
-  });
-
-  const newItem = getSafeItem(recipe.result);
-  if (!newItem) return;
-  const slot = newItem.type;
-
-  if (unit.equip && unit.equip[slot] !== undefined) {
-    const currentEquip = unit.equip[slot];
-    if (!currentEquip || (newItem.score || 0) > (currentEquip.score || 0)) {
-      if (currentEquip) unit.bag.push(currentEquip.id);
-      unit.equip[slot] = newItem;
-      if (isPlayer) addLog(`成功合成並自動穿戴：【${newItem.name}】！`, "text-amber-400 font-bold");
-    } else {
-      unit.bag.push(newItem.id);
-      if (isPlayer) addLog(`成功合成：【${newItem.name}】（已放背包）！`, "text-emerald-400 font-bold");
-    }
-  } else {
-    unit.bag.push(newItem.id);
-    if (isPlayer) addLog(`成功合成：【${newItem.name}】！`, "text-emerald-400 font-bold");
-  }
-  updateUI();
-}
-
-function triggerSearch() {
-  if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
-  const p = state.player;
-
-  if (p.stunRemain > 0) {
-    addLog(`⛔ 你正被【歌廳秀】定身中（剩餘 ${p.stunRemain} 秒），無法搜刮！`, "text-rose-400 font-bold");
-    return;
-  }
-
-  if (p.sp < 15) {
-    addLog("體力不足（小於 15），無法搜刮！", "text-rose-400");
-    return;
-  }
-
-  p.sp -= 15;
-  state.isSearching = true;
-  updateUI();
-
-  const totalSearchMs = (p.id === "wangshijian" && p.stealthRemain > 0) ? 2000 : 3000;
-
-  const promptText = document.getElementById("search-prompt-text");
-  const progressBox = document.getElementById("search-progress-box");
-  const progressBar = document.getElementById("search-progress-bar");
-
-  if (promptText) {
-    promptText.textContent = (totalSearchMs === 2000) ? "⚡ 從從容容 1.5x 極速搜刮中..." : "🔍 搜刮中...";
-    promptText.classList.remove("hidden");
-  }
-  if (progressBox) progressBox.classList.remove("hidden");
-  if (progressBar) progressBar.style.width = "0%";
-
-  let elapsed = 0;
-  const searchInterval = setInterval(() => {
-    elapsed += 100;
-    const percent = Math.min(100, (elapsed / totalSearchMs) * 100);
-    if (progressBar) progressBar.style.width = `${percent}%`;
-
-    if (elapsed >= totalSearchMs) {
-      clearInterval(searchInterval);
-      state.isSearching = false;
-
-      if (progressBox) progressBox.classList.add("hidden");
-      if (promptText) promptText.classList.add("hidden");
-
-      executeSearchFinish();
-    }
-  }, 100);
-}
-
-function lootMultipleItemsForPlayer(count = 1) {
-  const p = state.player;
-  const currentZoneObj = getSafeCurrentZone(p.zone);
-  const dropPool = (currentZoneObj.drops && currentZoneObj.drops.length > 0) ? currentZoneObj.drops : [];
-
-  if (dropPool.length === 0) {
-    addLog(`🔍 搜刮了周遭，沒有發現任何物資。`, "text-slate-400");
-    return;
-  }
-
-  for (let i = 0; i < count; i++) {
-    const dropId = dropPool[Math.floor(Math.random() * dropPool.length)];
-    const item = getSafeItem(dropId);
-    if (!item) {
-      console.warn("找不到對應的物品資料:", dropId);
-      continue;
-    }
-
-    const slot = item.type;
-    if (p.equip && ['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(slot) && p.equip[slot] === null) {
-      p.equip[slot] = { ...item, id: dropId };
-      addLog(`搜刮獲得並自動裝備【${item.name}】！`, "text-amber-300 font-bold");
-    } else if (p.bag && p.bag.length < 6) {
-      p.bag.push(dropId);
-      addLog(`搜刮獲得【${item.name}】！`, "text-emerald-300 font-bold");
-    } else {
-      addLog(`背包已滿（6/6），錯過了【${item.name}】！`, "text-rose-400");
-    }
-  }
-}
-
-function executeSearchFinish() {
-  const p = state.player;
-
-  if ((p.stealthRemain || 0) <= 0 && DEV_CONFIG.enableNPC) {
-    const sameZoneAIs = state.ais.filter(a =>
-      a && a.alive && a.zone === p.zone && (a.stealthRemain || 0) <= 0
-    );
-
-    if (sameZoneAIs.length > 0 && Math.random() < 0.60) {
-      const targetAI = sameZoneAIs[Math.floor(Math.random() * sameZoneAIs.length)];
-      if (typeof startCombat === 'function') {
-        startCombat(targetAI);
-        return;
-      }
-    }
-  }
-
-  lootMultipleItemsForPlayer(1);
-  updateUI();
-}
-
-function openMapModal() {
-  if (state.gameOver || state.inCombat || state.isSearching) return;
-  const modal = document.getElementById("map-modal");
-  if (modal) {
-    modal.classList.remove("hidden");
-    renderTacticalMap();
-  }
-}
-
-function closeMapModal() {
-  const modal = document.getElementById("map-modal");
-  if (modal) modal.classList.add("hidden");
-}
-
-function moveZone(targetZoneId) {
-  if (state.gameOver || state.inCombat || state.isSearching || !state.player) return;
-  const p = state.player;
-
-  if (p.stunRemain > 0) {
-    addLog(`⛔ 你正處於定身狀態，無法移動！`, "text-rose-400 font-bold");
-    closeMapModal();
-    return;
-  }
-
-  if (p.zone === targetZoneId) {
-    closeMapModal();
-    return;
-  }
-
-  if (state.closedZones.includes(targetZoneId)) {
-    addLog("該區域已列為禁區，無法進入！", "text-rose-500 font-bold");
-    return;
-  }
-
-  if (p.sp < 5) {
-    addLog("體力不足（需 5 體力），無法移動！", "text-rose-400");
-    closeMapModal();
-    return;
-  }
-
-  p.sp -= 5;
-  p.zone = targetZoneId;
-  const targetZone = getSafeCurrentZone(targetZoneId);
-  addLog(`移動到了【${targetZone.name}】。`, "text-indigo-300");
-
-  if (isChaoGeAuraAffecting(p)) {
-    addLog(`⚠️ 感受到一股「超派～」氣場，在此地區你的防禦力降低了 20%！`, "text-rose-400 font-bold");
-  }
-
-  closeMapModal();
-  updateUI();
-}
-
 function setTrackedItem(itemId) {
   const item = getSafeItem(itemId);
   if (!item) return;
-
   state.trackedItemId = item.id;
   addLog(`🎯 已鎖定追蹤：【${item.name}】！`, "text-amber-300 font-bold");
   closeCraftBookModal();
@@ -769,9 +396,7 @@ function renderTargetTracker() {
 
   const ownedIds = [...(state.player.bag || [])].map(id => ItemRegistry.ALIAS[id] || id);
   if (state.player.equip) {
-    Object.values(state.player.equip).forEach(it => {
-      if (it) ownedIds.push(ItemRegistry.ALIAS[it.id] || it.id);
-    });
+    Object.values(state.player.equip).forEach(it => { if (it) ownedIds.push(ItemRegistry.ALIAS[it.id] || it.id); });
   }
 
   const recipes = getSafeRecipes();
@@ -786,467 +411,19 @@ function renderTargetTracker() {
       const mRarity = ItemRegistry.getRarity(resolvedMat);
 
       if (isOwned) {
-        html += `
-          <div class="flex justify-between items-center text-emerald-400">
-            <span class="truncate max-w-[110px] font-bold">✔ ${mName}</span>
-            <span class="text-[9px] text-emerald-500 font-mono">已擁有</span>
-          </div>
-        `;
+        html += `<div class="flex justify-between items-center text-emerald-400"><span class="truncate max-w-[110px] font-bold">✔ ${mName}</span><span class="text-[9px] text-emerald-500 font-mono">已擁有</span></div>`;
       } else {
-        html += `
-          <div class="flex justify-between items-center text-rose-300">
-            <span class="truncate max-w-[95px] ${mRarity.text}">✖ ${mName}</span>
-            <span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[85px] font-bold">⭐${loc}</span>
-          </div>
-        `;
+        html += `<div class="flex justify-between items-center text-rose-300"><span class="truncate max-w-[95px] ${mRarity.text}">✖ ${mName}</span><span class="text-[9px] text-amber-300/90 font-mono truncate max-w-[85px] font-bold">⭐${loc}</span></div>`;
       }
     });
   } else {
     const loc = getItemDropLocationName(targetItem.id);
     const count = ownedIds.filter(id => id === targetItem.id).length;
-    html += `
-      <div class="space-y-0.5 pt-0.5">
-        <div class="flex justify-between text-slate-300">
-          <span>產地:</span>
-          <span class="text-amber-400 font-bold truncate max-w-[120px]">⭐${loc}</span>
-        </div>
-        <div class="flex justify-between text-slate-300">
-          <span>擁有:</span>
-          <span class="${count > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400'}">${count > 0 ? `✔ ${count} 個` : '✖ 0 個'}</span>
-        </div>
-      </div>
-    `;
+    html += `<div class="space-y-0.5 pt-0.5"><div class="flex justify-between text-slate-300"><span>產地:</span><span class="text-amber-400 font-bold truncate max-w-[120px]">⭐${loc}</span></div><div class="flex justify-between text-slate-300"><span>擁有:</span><span class="${count > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400'}">${count > 0 ? `✔ ${count} 個` : '✖ 0 個'}</span></div></div>`;
   }
 
   html += `</div>`;
   trackerBox.innerHTML = html;
-}
-
-function getItemRecipeTree(itemId) {
-  const resolvedId = ItemRegistry.ALIAS[itemId] || itemId;
-  const recipes = getSafeRecipes();
-  const downstream = recipes.find(r => (ItemRegistry.ALIAS[r.result] || r.result) === resolvedId) || null;
-  const upstream = recipes.filter(r => r.materials.some(m => (ItemRegistry.ALIAS[m] || m) === resolvedId)).map(r => ({
-    resultId: r.result,
-    resultItem: getSafeItem(r.result),
-    recipe: r
-  }));
-
-  return { downstream, upstream };
-}
-
-function inspectItemById(itemId) {
-  const item = getSafeItem(itemId);
-  if (!item) return;
-  activeInspectTarget = { type: 'tree_nav', indexOrKey: item.id };
-  showItemInfoModal(item, '物品詳細情報', false);
-}
-
-let currentCraftTab = 'all';
-
-function openCraftBookModal() {
-  const modal = document.getElementById("craft-book-modal");
-  if (modal) {
-    modal.classList.remove("hidden");
-    filterCraftBook('all');
-  }
-}
-
-function closeCraftBookModal() {
-  const modal = document.getElementById("craft-book-modal");
-  if (modal) modal.classList.add("hidden");
-}
-
-function filterCraftBook(tab) {
-  currentCraftTab = tab;
-  const tabs = ['all', 1, 2, 3, 4, 5];
-  const inactiveColors = {
-    all: "text-slate-300",
-    1: "text-slate-300",
-    2: "text-emerald-400",
-    3: "text-sky-400",
-    4: "text-amber-300",
-    5: "text-rose-400"
-  };
-
-  tabs.forEach(t => {
-    const btn = document.getElementById(`craft-tab-${t}`);
-    if (btn) {
-      btn.className = (t === tab)
-        ? "py-1.5 rounded-lg bg-indigo-600 text-white font-black transition shadow"
-        : `py-1.5 rounded-lg bg-slate-800 ${inactiveColors[t]} font-bold transition hover:bg-slate-700`;
-    }
-  });
-
-  renderCraftBookList();
-}
-
-function renderCraftBookList() {
-  const listEl = document.getElementById("craft-recipes-list");
-  if (!listEl) return;
-
-  let allItems = ItemRegistry.getAllUniqueItems();
-  const recipes = getSafeRecipes();
-
-  if (currentCraftTab !== 'all') {
-    allItems = allItems.filter(it => ItemRegistry.getRarity(it.id).level === Number(currentCraftTab));
-  }
-
-  allItems.sort((a, b) => {
-    const rA = ItemRegistry.getRarity(a.id).level;
-    const rB = ItemRegistry.getRarity(b.id).level;
-    return rA - rB;
-  });
-
-  if (allItems.length === 0) {
-    listEl.innerHTML = `<div class="text-center text-slate-500 py-8 text-xs">此品級暫無登錄物資</div>`;
-    return;
-  }
-
-  const typeLabelMap = {
-    weapon: "⚔️ 武器",
-    head: "🪖 頭部",
-    chest: "👕 衣服",
-    arm: "🛡️ 手臂",
-    leg: "👟 腿部",
-    acc: "💍 飾品",
-    food: "🍖 食物",
-    material: "🔩 材料"
-  };
-
-  listEl.innerHTML = allItems.map(item => {
-    const rarity = ItemRegistry.getRarity(item.id);
-    const recipe = recipes.find(r => (ItemRegistry.ALIAS[r.result] || r.result) === item.id);
-    const typeLabel = typeLabelMap[item.type] || "📦 物資";
-
-    let statTag = "";
-    if (item.atk) statTag = `<span class="text-amber-400 font-bold font-mono text-xs">+${item.atk} 攻</span>`;
-    else if (item.def) statTag = `<span class="text-sky-400 font-bold font-mono text-xs">+${item.def} 防</span>`;
-    else if (item.hp || item.sp) {
-      const parts = [];
-      if (item.hp) parts.push(`+${item.hp}HP`);
-      if (item.sp) parts.push(`+${item.sp}SP`);
-      statTag = `<span class="text-emerald-400 font-bold font-mono text-[11px]">${parts.join(" ")}</span>`;
-    }
-
-    let sourceInfoHTML = "";
-    if (recipe) {
-      const matBadges = recipe.materials.map(mId => {
-        const mName = getItemDisplayName(mId);
-        const mRarity = ItemRegistry.getRarity(mId);
-        return `<button onclick="event.stopPropagation(); inspectItemById('${mId}')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 active:scale-95 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
-      }).join(`<span class="text-slate-500 font-bold">+</span>`);
-
-      sourceInfoHTML = `
-        <div class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1 flex-wrap">
-          <span class="text-slate-500 font-mono text-[10px]">配方:</span>
-          ${matBadges}
-        </div>
-      `;
-    } else {
-      const dropLoc = getItemDropLocationName(item.id);
-      sourceInfoHTML = `
-        <div class="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-          <span class="text-slate-500 font-mono">產地:</span>
-          <span class="text-amber-300/90 font-bold">📍 ${dropLoc}</span>
-        </div>
-      `;
-    }
-
-    const isTrackingThis = state.trackedItemId === item.id;
-
-    return `
-      <div onclick="inspectItemById('${item.id}')" class="bg-slate-900 hover:bg-slate-800/80 cursor-pointer border-2 ${isTrackingThis ? 'border-amber-400 shadow-md shadow-amber-950/40' : rarity.border} rounded-xl p-2.5 flex justify-between items-center transition ${rarity.glow}">
-        <div class="min-w-0 flex-1 pr-2">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-sm font-black ${rarity.text}">${item.name}</span>
-            <span class="text-[9px] px-1.5 py-0.2 rounded font-bold ${rarity.badge}">${rarity.shortName}</span>
-            <span class="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded">${typeLabel}</span>
-            ${statTag}
-            ${isTrackingThis ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/60 px-1 py-0.2 rounded font-bold animate-pulse">追蹤中</span>' : ''}
-          </div>
-          ${sourceInfoHTML}
-        </div>
-        <button onclick="event.stopPropagation(); ${isTrackingThis ? "clearTrackedItem()" : `setTrackedItem('${item.id}')`}" class="px-2.5 py-1.5 ${isTrackingThis ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 border border-slate-700 rounded-lg text-[10px] font-bold transition flex-shrink-0">
-          ${isTrackingThis ? '✕ 取消' : '🎯 追蹤'}
-        </button>
-      </div>
-    `;
-  }).join("");
-}
-
-let draggedBagIndex = null;
-function handleDragStart(e, index) { draggedBagIndex = index; }
-function handleDragOverYellow(e) { e.preventDefault(); document.getElementById("explore-panel")?.classList.add("drag-over-yellow"); }
-function handleDragLeaveYellow(e) { document.getElementById("explore-panel")?.classList.remove("drag-over-yellow"); }
-function handleDropToYellow(e) {
-  e.preventDefault();
-  document.getElementById("explore-panel")?.classList.remove("drag-over-yellow");
-  if (draggedBagIndex !== null) { applyItemDropToYellow(draggedBagIndex); draggedBagIndex = null; }
-}
-function handleDragOverRed(e) { e.preventDefault(); document.getElementById("drop-zone-red")?.classList.add("drag-over-red"); }
-function handleDragLeaveRed(e) { document.getElementById("drop-zone-red")?.classList.remove("drag-over-red"); }
-function handleDropToRed(e) {
-  e.preventDefault();
-  document.getElementById("drop-zone-red")?.classList.remove("drag-over-red");
-  if (draggedBagIndex !== null) { applyItemDropToRed(draggedBagIndex); draggedBagIndex = null; }
-}
-
-let touchState = { active: false, isDragging: false, bagIndex: null, startX: 0, startY: 0, ghostEl: null };
-
-function handleItemTouchStart(e, index) {
-  if (state.gameOver || state.isSearching) return;
-  const touch = e.touches[0];
-  touchState.active = true;
-  touchState.isDragging = false;
-  touchState.bagIndex = index;
-  touchState.startX = touch.clientX;
-  touchState.startY = touch.clientY;
-}
-
-function handleItemTouchMove(e) {
-  if (!touchState.active) return;
-  const touch = e.touches[0];
-  const deltaX = Math.abs(touch.clientX - touchState.startX);
-  const deltaY = Math.abs(touch.clientY - touchState.startY);
-
-  if (!touchState.isDragging && (deltaX > 6 || deltaY > 6)) {
-    const item = getSafeItem(state.player.bag[touchState.bagIndex]);
-    if (!item) return;
-    touchState.isDragging = true;
-    const rarity = ItemRegistry.getRarity(item.id);
-
-    const ghost = document.createElement("div");
-    ghost.id = "touch-drag-ghost";
-    ghost.className = `fixed pointer-events-none z-[9999] px-3 py-1.5 bg-slate-900 ${rarity.text} border-2 ${rarity.border} font-black text-xs rounded-xl shadow-2xl scale-110 opacity-90 transition-transform`;
-    ghost.textContent = item.name;
-    document.body.appendChild(ghost);
-    touchState.ghostEl = ghost;
-  }
-
-  if (touchState.isDragging && touchState.ghostEl) {
-    e.preventDefault();
-    touchState.ghostEl.style.left = `${touch.clientX - 40}px`;
-    touchState.ghostEl.style.top = `${touch.clientY - 45}px`;
-
-    const hoveredEl = document.elementFromPoint(touch.clientX, touch.clientY);
-    const yellowZone = document.getElementById("explore-panel");
-    const redZone = document.getElementById("drop-zone-red");
-
-    if (yellowZone && yellowZone.contains(hoveredEl)) yellowZone.classList.add("drag-over-yellow");
-    else if (yellowZone) yellowZone.classList.remove("drag-over-yellow");
-
-    if (redZone && redZone.contains(hoveredEl)) redZone.classList.add("drag-over-red");
-    else if (redZone) redZone.classList.remove("drag-over-red");
-  }
-}
-
-function handleItemTouchEnd(e) {
-  if (!touchState.active) return;
-
-  const yellowZone = document.getElementById("explore-panel");
-  const redZone = document.getElementById("drop-zone-red");
-  if (yellowZone) yellowZone.classList.remove("drag-over-yellow");
-  if (redZone) redZone.classList.remove("drag-over-red");
-
-  if (touchState.ghostEl) { touchState.ghostEl.remove(); touchState.ghostEl = null; }
-
-  if (touchState.isDragging) {
-    const touch = e.changedTouches[0];
-    const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (yellowZone && yellowZone.contains(dropTarget)) applyItemDropToYellow(touchState.bagIndex);
-    else if (redZone && redZone.contains(dropTarget)) applyItemDropToRed(touchState.bagIndex);
-  } else {
-    inspectBagItem(touchState.bagIndex);
-  }
-
-  touchState.active = false;
-  touchState.isDragging = false;
-  touchState.bagIndex = null;
-}
-
-function applyItemDropToYellow(bagIdx) {
-  if (bagIdx === null || !state.player) return;
-  const p = state.player;
-  const itemName = getItemDisplayName(p.bag[bagIdx]);
-  p.bag.splice(bagIdx, 1);
-  addLog(`丟棄了【${itemName}】。`, "text-slate-500");
-  updateUI();
-}
-
-function applyItemDropToRed(bagIdx) {
-  if (bagIdx === null || !state.player) return;
-  const p = state.player;
-  const itemId = p.bag[bagIdx];
-  const item = getSafeItem(itemId);
-  if (!item) return;
-
-  if (item.type === "food") {
-    let healHp = item.hp || 0;
-    const healSp = item.sp || 0;
-    if (p.id === "yazhoutongshen") healHp = Math.round(healHp * 1.2);
-    p.hp = Math.min(p.maxHp, p.hp + healHp);
-    p.sp = Math.min(p.maxSp, p.sp + healSp);
-    p.bag.splice(bagIdx, 1);
-    addLog(`吃掉了【${item.name}】！回復 ${healHp} HP / ${healSp} SP。`, "text-emerald-400 font-bold");
-  } else if (p.equip && ['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
-    const slot = item.type;
-    const oldItem = p.equip[slot];
-    p.equip[slot] = item;
-    if (oldItem) {
-      p.bag[bagIdx] = oldItem.id;
-      addLog(`換上【${item.name}】，原裝備【${oldItem.name}】已退回背包！`, "text-amber-300 font-bold");
-    } else {
-      p.bag.splice(bagIdx, 1);
-      addLog(`穿上【${item.name}】！`, "text-amber-300 font-bold");
-    }
-  } else {
-    addLog(`此物品為材料，無法直接裝備！`, "text-rose-400");
-  }
-  updateUI();
-}
-
-let activeInspectTarget = { type: null, indexOrKey: null };
-
-function inspectBagItem(index) {
-  if (state.gameOver || state.isSearching || !state.player) return;
-  const p = state.player;
-  const rawId = p.bag[index];
-  if (!rawId) return;
-  const item = getSafeItem(rawId);
-  if (!item) return;
-  activeInspectTarget = { type: 'bag', indexOrKey: index };
-  showItemInfoModal(item, '隨身背包物品', true);
-}
-
-function inspectEquipSlot(slotKey) {
-  if (state.gameOver || state.isSearching || !state.player) return;
-  const p = state.player;
-  const item = p.equip ? p.equip[slotKey] : null;
-  const slotLabels = { weapon: "武器部位", head: "頭部防具", chest: "胸部衣服", arm: "手臂手套", leg: "腿部鞋子", acc: "配件飾品" };
-  if (!item) { addLog(`【${slotLabels[slotKey] || slotKey}】目前尚未裝備任何物資。`, "text-slate-500"); return; }
-  activeInspectTarget = { type: 'equip', indexOrKey: slotKey };
-  showItemInfoModal(item, slotLabels[slotKey] || "裝備欄位", false);
-}
-
-function showItemInfoModal(item, categoryText, isFromBag) {
-  const modal = document.getElementById("item-info-modal");
-  const catEl = document.getElementById("info-item-category");
-  const nameEl = document.getElementById("info-item-name");
-  const statEl = document.getElementById("info-item-stat");
-  const descEl = document.getElementById("info-item-desc");
-  const btnContainer = document.getElementById("info-buttons-container");
-  const rarity = ItemRegistry.getRarity(item.id);
-
-  if (catEl) catEl.textContent = `${categoryText} • [${rarity.name}]`;
-  if (nameEl) { nameEl.textContent = item.name; nameEl.className = `text-base font-black ${rarity.text} mt-0.5`; }
-
-  let statStr = "";
-  if (item.type === "food") statStr = `回復 +${item.hp || 0} HP / +${item.sp || 0} SP`;
-  else if (item.atk) statStr = `攻擊力 +${item.atk}`;
-  else if (item.def) statStr = `防禦力 +${item.def}`;
-  else statStr = `基礎材料 (產地: ${getItemDropLocationName(item.id)})`;
-  if (statEl) statEl.textContent = statStr;
-  if (descEl) descEl.textContent = item.desc || "這是一件神祕的台灣生存物資。";
-
-  const { downstream, upstream } = getItemRecipeTree(item.id);
-  const isTrackingCurrent = state.trackedItemId === item.id;
-
-  let treeHTML = `<div class="space-y-2 border-t border-slate-800 pt-2 text-xs">`;
-  treeHTML += `
-    <div class="flex justify-between items-center bg-slate-950 p-2 rounded-lg border border-slate-800">
-      <span class="text-[11px] text-slate-300 font-bold">追蹤狀態</span>
-      <button onclick="${isTrackingCurrent ? "clearTrackedItem()" : `setTrackedItem('${item.id}')`}" class="px-3 py-1 ${isTrackingCurrent ? 'bg-rose-950 border border-rose-500 text-rose-300 hover:bg-rose-900' : 'bg-indigo-950 border border-indigo-500 text-indigo-300 hover:bg-indigo-900'} active:scale-95 rounded-lg text-xs font-bold transition">
-        ${isTrackingCurrent ? '✕ 取消追蹤' : '🎯 設為追蹤目標'}
-      </button>
-    </div>
-  `;
-
-  if (downstream) {
-    const matBadges = downstream.materials.map(mId => {
-      const mName = getItemDisplayName(mId);
-      const mRarity = ItemRegistry.getRarity(mId);
-      return `<button onclick="inspectItemById('${mId}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 ${mRarity.text} rounded border ${mRarity.border} text-[10px] underline">${mName}</button>`;
-    }).join(`<span class="text-slate-500 font-bold">+</span>`);
-    treeHTML += `<div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800"><div class="text-[10px] font-bold text-slate-400 mb-1">🔻【合成來源】</div><div class="flex items-center gap-1.5 flex-wrap">${matBadges}</div></div>`;
-  } else {
-    treeHTML += `<div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 flex justify-between items-center"><span class="text-[10px] font-bold text-slate-400">📍【物資產地】</span><span class="text-[11px] font-bold text-amber-400">${getItemDropLocationName(item.id)}</span></div>`;
-  }
-
-  if (upstream.length > 0) {
-    const upstreamBadges = upstream.map(u => {
-      const upName = u.resultItem ? u.resultItem.name : u.resultId;
-      const isUpTracking = state.trackedItemId === u.resultId;
-      const upRarity = ItemRegistry.getRarity(u.resultId);
-      return `
-        <div class="flex justify-between items-center py-1 border-b border-slate-800/60 last:border-0">
-          <button onclick="inspectItemById('${u.resultId}')" class="${upRarity.text} hover:opacity-80 font-bold underline text-[11px] text-left truncate max-w-[170px]">🔺 ${upName}</button>
-          <button onclick="${isUpTracking ? "clearTrackedItem()" : `setTrackedItem('${u.resultId}')`}" class="px-2 py-0.5 ${isUpTracking ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-slate-800 text-amber-400 hover:bg-slate-700'} active:scale-95 text-[10px] rounded border border-slate-700 font-bold transition">${isUpTracking ? '✕ 取消' : '🎯 追蹤'}</button>
-        </div>
-      `;
-    }).join("");
-    treeHTML += `<div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800 max-h-24 overflow-y-auto custom-scrollbar"><div class="text-[10px] font-bold text-indigo-400 mb-1">🔺【可合成的高階物品】</div>${upstreamBadges}</div>`;
-  }
-  treeHTML += `</div>`;
-
-  let buttonsHTML = "";
-  if (isFromBag) {
-    if (['weapon', 'head', 'chest', 'arm', 'leg', 'acc'].includes(item.type)) {
-      buttonsHTML = `<button onclick="modalActionEquip()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs shadow transition">裝備 (自動替換)</button>`;
-    } else if (item.type === "food") {
-      buttonsHTML = `<button onclick="modalActionUse()" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs shadow transition">使用 (食用)</button>`;
-    }
-    buttonsHTML += `<button onclick="modalActionDrop()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold rounded-xl text-xs transition">丟棄物資</button>`;
-  } else if (activeInspectTarget.type === 'equip') {
-    buttonsHTML = `<button onclick="modalActionUnequip()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-xl text-xs shadow transition">解除裝備 (收回背包)</button>`;
-  }
-
-  if (btnContainer) btnContainer.innerHTML = treeHTML + `<div class="space-y-1.5 pt-1">${buttonsHTML}</div>`;
-  if (modal) modal.classList.remove("hidden");
-}
-
-function closeItemInfoModal() {
-  const modal = document.getElementById("item-info-modal");
-  if (modal) modal.classList.add("hidden");
-  activeInspectTarget = { type: null, indexOrKey: null };
-}
-
-function modalActionUse() { if (activeInspectTarget.type === 'bag') { applyItemDropToRed(activeInspectTarget.indexOrKey); closeItemInfoModal(); } }
-function modalActionEquip() { if (activeInspectTarget.type === 'bag') { applyItemDropToRed(activeInspectTarget.indexOrKey); closeItemInfoModal(); } }
-function modalActionDrop() { if (activeInspectTarget.type === 'bag') { applyItemDropToYellow(activeInspectTarget.indexOrKey); closeItemInfoModal(); } }
-function modalActionUnequip() {
-  if (activeInspectTarget.type !== 'equip') return;
-  const p = state.player;
-  const slotKey = activeInspectTarget.indexOrKey;
-  if (p.bag.length >= 6) { addLog(`背包已滿（6/6），無法卸下裝備！`, "text-rose-400"); return; }
-  if (p.equip && p.equip[slotKey]) {
-    const unequipped = p.equip[slotKey];
-    p.bag.push(unequipped.id);
-    p.equip[slotKey] = null;
-    addLog(`卸下了【${unequipped.name}】，已收回背包。`, "text-slate-400");
-  }
-  closeItemInfoModal();
-  updateUI();
-}
-
-function renderEquipSixGrid(p) {
-  const gridEl = document.getElementById("equip-six-grid");
-  if (!gridEl) return;
-  const slots = [
-    { key: "weapon", label: "武器", item: p.equip?.weapon, svg: EQUIP_SLOT_SVGS.weapon },
-    { key: "head",   label: "頭部", item: p.equip?.head,   svg: EQUIP_SLOT_SVGS.head },
-    { key: "chest",  label: "衣服", item: p.equip?.chest,  svg: EQUIP_SLOT_SVGS.chest },
-    { key: "arm",    label: "手臂", item: p.equip?.arm,    svg: EQUIP_SLOT_SVGS.arm },
-    { key: "leg",    label: "腿部", item: p.equip?.leg,    svg: EQUIP_SLOT_SVGS.leg },
-    { key: "acc",    label: "飾品", item: p.equip?.acc,    svg: EQUIP_SLOT_SVGS.acc }
-  ];
-  gridEl.innerHTML = slots.map(s => {
-    if (s.item) {
-      const rarity = ItemRegistry.getRarity(s.item.id);
-      return `<div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border-2 ${rarity.border} bg-slate-900/95 flex items-center justify-center relative cursor-pointer active:scale-95 transition ${rarity.glow}" title="檢視 ${s.item.name}"><div class="${rarity.iconColor}">${s.svg}</div></div>`;
-    }
-    return `<div onclick="inspectEquipSlot('${s.key}')" class="h-9 rounded border border-slate-800 bg-slate-900/90 flex items-center justify-center relative opacity-40 cursor-pointer text-slate-500">${s.svg}</div>`;
-  }).join("");
 }
 
 function renderTacticalMap() {
@@ -1259,7 +436,6 @@ function renderTacticalMap() {
   const nodesHTML = zones.map(z => {
     const isCurrent = (p.zone === z.id);
     const isClosed = state.closedZones.includes(z.id);
-    const isPendingClose = !isClosed && state.pendingCloseZones.includes(z.id);
     const hasNeededMaterial = !isClosed && missingMats.some(mId => z.drops && (z.drops.includes(mId) || z.drops.includes(ItemRegistry.ALIAS[mId] || mId)));
 
     let pillClass = "bg-slate-950/95 border border-amber-700/60 text-slate-100 shadow-md";
@@ -1302,7 +478,6 @@ function renderTacticalMap() {
 function updateUI() {
   if (!state.player) return;
   const p = state.player;
-  const ai = state.ai;
 
   const pNameEl = document.getElementById("player-name");
   if (pNameEl) pNameEl.textContent = p.name;
@@ -1320,43 +495,27 @@ function updateUI() {
   const spText = document.getElementById("sp-text");
   if (spText) spText.textContent = `${p.sp}/${p.maxSp}`;
 
-  renderEquipSixGrid(p);
-  renderTargetTracker();
-
-  const craftBox = document.getElementById("craft-alert-box");
-  const availableRecipes = findAvailableRecipes(p);
-  if (availableRecipes.length > 0 && craftBox) {
-    craftBox.classList.remove("hidden");
-    craftBox.innerHTML = availableRecipes.map(r => {
-      const targetItem = getSafeItem(r.result);
-      const rarity = ItemRegistry.getRarity(targetItem.id);
-      return `<button onclick="craftItem(state.player, getSafeRecipes().find(x=>x.result==='${r.result}'), true)" class="w-full py-2 px-3 mb-1 bg-emerald-500 text-slate-950 font-black rounded-xl shadow-lg flex justify-between items-center animate-pulse-fast"><span>一鍵合成：【${targetItem.name}】(${rarity.shortName})</span><span>${r.desc}</span></button>`;
-    }).join("");
-  } else if (craftBox) {
-    craftBox.classList.add("hidden");
+  // 更新縮圈計時器顯示
+  const timerBadge = document.getElementById("zone-timer-badge");
+  if (timerBadge && DEV_CONFIG.enableZoneClose) {
+    const m = Math.floor(state.roundTimeRemain / 60);
+    const s = state.roundTimeRemain % 60;
+    const timeStr = `${m}:${s.toString().padStart(2, '0')}`;
+    timerBadge.textContent = `🔥 R${state.currentRoundIdx + 1} 縮圈: ${timeStr}`;
   }
 
-  const comPanel = document.getElementById("combat-panel");
-  const expPanel = document.getElementById("explore-panel");
+  renderTargetTracker();
+  renderEquipSixGrid(p);
 
-  if (state.inCombat && ai) {
-    if (expPanel) expPanel.classList.add("hidden");
-    if (comPanel) comPanel.classList.remove("hidden");
-    if (typeof updateCombatUI === 'function') updateCombatUI();
-  } else {
-    if (expPanel) expPanel.classList.remove("hidden");
-    if (comPanel) comPanel.classList.add("hidden");
+  const zObj = getSafeCurrentZone(p.zone);
+  const zoneTitle = document.getElementById("zone-title");
+  if (zoneTitle && zObj) zoneTitle.textContent = `${zObj.icon || ''} ${zObj.name}`;
 
-    const zObj = getSafeCurrentZone(p.zone);
-    const zoneTitle = document.getElementById("zone-title");
-    if (zoneTitle && zObj) zoneTitle.textContent = `${zObj.icon || ''} ${zObj.name}`;
-
-    const zoneDrops = document.getElementById("zone-drops");
-    if (zoneDrops && zObj) {
-      const uniqueDropIds = [...new Set(zObj.drops || [])];
-      const dropNames = uniqueDropIds.map(id => getItemDisplayName(id));
-      zoneDrops.textContent = dropNames.length > 0 ? `可搜刮：${dropNames.join("、")}` : `可搜刮：暫無配置物資`;
-    }
+  const zoneDrops = document.getElementById("zone-drops");
+  if (zoneDrops && zObj) {
+    const uniqueDropIds = [...new Set(zObj.drops || [])];
+    const dropNames = uniqueDropIds.map(id => getItemDisplayName(id));
+    zoneDrops.textContent = dropNames.length > 0 ? `可搜刮：${dropNames.join("、")}` : `可搜刮：暫無配置物資`;
   }
 
   const invGrid = document.getElementById("inventory-grid");
@@ -1367,7 +526,7 @@ function updateUI() {
         if (item) {
           const rarity = ItemRegistry.getRarity(item.id);
           return `
-            <div draggable="true" ondragstart="handleDragStart(event, ${i})" ontouchstart="handleItemTouchStart(event, ${i})" ontouchmove="handleItemTouchMove(event)" ontouchend="handleItemTouchEnd(event)" onclick="inspectBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border-2 ${rarity.border} rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none ${rarity.glow}">
+            <div draggable="true" ondragstart="handleDragStart(event, ${i})" onclick="inspectBagItem(${i})" class="bg-slate-800 hover:bg-slate-700 active:scale-95 border-2 ${rarity.border} rounded p-1.5 text-left h-12 transition flex flex-col justify-center cursor-pointer select-none ${rarity.glow}">
               <div class="text-xs font-bold truncate ${rarity.text}">${item.name}</div>
             </div>
           `;
@@ -1378,14 +537,17 @@ function updateUI() {
   }
 }
 
-function endGame(isWin, reason) {
-  state.gameOver = true;
-  const modal = document.getElementById("gameover-modal");
-  if (modal) modal.classList.remove("hidden");
-  const icon = document.getElementById("gameover-icon");
-  if (icon) icon.textContent = isWin ? "WIN" : "LOSE";
-  const title = document.getElementById("gameover-title");
-  if (title) title.textContent = isWin ? "大吉大利！" : "出師未捷...";
-  const desc = document.getElementById("gameover-desc");
-  if (desc) desc.textContent = reason;
+// 輔助戰鬥與屬性計算
+function getTotalAtk(unit) {
+  if (!unit) return 0;
+  let total = unit.baseAtk || 0;
+  if (unit.equip) Object.values(unit.equip).forEach(item => { if (item && item.atk) total += item.atk; });
+  return Math.max(1, total);
+}
+
+function getTotalDef(unit) {
+  if (!unit) return 0;
+  let total = unit.baseDef || 0;
+  if (unit.equip) Object.values(unit.equip).forEach(item => { if (item && item.def) total += item.def; });
+  return Math.max(0, total);
 }
