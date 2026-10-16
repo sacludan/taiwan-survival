@@ -253,7 +253,8 @@
           </div>
 
           <div class="relative py-1 flex items-start">
-            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-56 bg-slate-950/75 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer">
+            <!-- 🎯【完美安放】在此處加回追蹤盒，完全貼合妳原版的探索面板結構 -->
+            <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden w-56 bg-slate-950/75 hover:bg-slate-950/90 backdrop-blur-xs border border-amber-500/50 rounded-xl p-2 shadow-xl transition text-left cursor-pointer z-30">
             </div>
           </div>
 
@@ -495,7 +496,7 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (確保載入正確的 maps.js 與各模組) -->
+  <!-- 🔗 模組引入清單 -->
   <script src="items_weapon.js?v=63"></script>
   <script src="items_armor.js?v=63"></script>
   <script src="items_material.js?v=63"></script>
