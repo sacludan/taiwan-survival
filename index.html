@@ -191,7 +191,7 @@
     <!-- 2. 遊戲主畫面 -->
     <div id="game-screen" class="hidden flex-1 flex flex-col justify-between h-full relative overflow-hidden">
 
-      <!-- 🎯 絕對定位追蹤盒：強制浮現於主畫面左上角，點擊可直接打開圖鑑 -->
+      <!-- 🎯 絕對定位追蹤盒 DOM 元素 (強制浮現於主畫面左上角) -->
       <div id="target-tracker-box" onclick="event.stopPropagation(); openCraftBookModal();" class="hidden absolute top-2 left-2 z-40 w-52 bg-slate-950/90 border border-amber-500 rounded-xl p-2 shadow-2xl transition text-left cursor-pointer"></div>
 
       <main class="flex-1 px-3 py-2 flex flex-col justify-between gap-2 overflow-hidden relative">
@@ -465,19 +465,19 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (帶有時間戳參數確保瀏覽器強制抓取最新檔案) -->
-  <script src="items_weapon.js?v=999"></script>
-  <script src="items_armor.js?v=999"></script>
-  <script src="items_material.js?v=999"></script>
-  <script src="items_food.js?v=999"></script>
-  <script src="recipes.js?v=999"></script>
-  <script src="maps.js?v=999"></script>
-  <script src="characters.js?v=999"></script>
-  <script src="game_config.js?v=999"></script>
+  <!-- 🔗 模組引入清單 (帶有強制更新的版本號參數) -->
+  <script src="items_weapon.js?v=888"></script>
+  <script src="items_armor.js?v=888"></script>
+  <script src="items_material.js?v=888"></script>
+  <script src="items_food.js?v=888"></script>
+  <script src="recipes.js?v=888"></script>
+  <script src="maps.js?v=888"></script>
+  <script src="characters.js?v=888"></script>
+  <script src="game_config.js?v=888"></script>
   
-  <script src="lobby.js?v=999"></script>
-  <script src="ai.js?v=999"></script>
-  <script src="combat.js?v=999"></script>
-  <script src="main.js?v=999"></script>
+  <script src="lobby.js?v=888"></script>
+  <script src="ai.js?v=888"></script>
+  <script src="combat.js?v=888"></script>
+  <script src="main.js?v=888"></script>
 </body>
 </html>
