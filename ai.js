@@ -29,12 +29,12 @@ function lootOneItemForAI(ai) {
     if (!currentEquip || (item.score || 0) > (currentEquip.score || 0)) {
       if (currentEquip && ai.bag.length < 6) ai.bag.push(currentEquip.id);
       ai.equip[slot] = { ...item, id: dropId };
-      zObj.drops.splice(randIdx, 1); // 確定撿取後從地圖移除
+      zObj.drops.splice(randIdx, 1);
     } else if (ai.bag.length < 6) {
       ai.bag.push(dropId);
       zObj.drops.splice(randIdx, 1);
     } else {
-      return false; // 背包滿了撿不下，物資留在原地
+      return false;
     }
   } else if (ai.bag.length < 6) {
     ai.bag.push(dropId);
@@ -79,7 +79,6 @@ function moveAIToSafeZone(ai) {
   const candidates = getSafeOpenZonesForAI(ai.zone);
   if (!candidates || candidates.length === 0) return;
 
-  // AI 優先前往還有剩餘物資的安全區域
   const withDrops = candidates.filter(z => z.drops && z.drops.length > 0);
   const pool = withDrops.length > 0 ? withDrops : candidates;
   const nextZone = pool[Math.floor(Math.random() * pool.length)];
@@ -174,7 +173,6 @@ function runAIBrain() {
       return;
     }
 
-    // 搜刮物資，若該區物資已枯竭則自動換區尋找物資
     if (Math.random() < 0.70) {
       const looted = lootOneItemForAI(ai);
       if (!looted) {
