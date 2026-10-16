@@ -154,14 +154,14 @@
     <div id="lobby-screen" class="absolute inset-0 bg-slate-950 z-50 flex flex-col justify-between p-4 text-center pt-5 pb-4 overflow-y-auto custom-scrollbar">
       <div>
         <h1 class="text-2xl font-black text-white tracking-wider">台灣生存戰</h1>
-        <p class="text-[10px] text-indigo-400 font-mono tracking-widest uppercase">Formosa Survival: 9 Legends</p>
+        <p class="text-[10px] text-indigo-400 font-mono tracking-widest uppercase">Formosa Survival: Battle Royale</p>
       </div>
 
-      <!-- 角色選擇區塊 -->
+      <!-- 角色選擇與模式按鈕區塊 -->
       <div class="space-y-2 my-auto text-left">
         <div class="flex justify-between items-center">
-          <span class="text-xs font-black text-amber-400">1️⃣ 選擇你的出戰角色</span>
-          <span class="text-[10px] text-slate-400">電腦將使用剩餘 8 角色不重複</span>
+          <span class="text-xs font-black text-amber-400">選擇出戰角色：</span>
+          <span class="text-[10px] text-slate-400">正常對戰由電腦使用剩餘 8 角</span>
         </div>
 
         <div id="lobby-char-grid" class="grid grid-cols-3 gap-1.5"></div>
@@ -169,17 +169,24 @@
         <!-- 選中角色的主被動詳細預覽 -->
         <div id="lobby-char-preview" class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-left"></div>
 
-        <button onclick="LobbyManager.startGame(false)" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-base shadow-lg transition">
-          🚀 開始遊戲 (正常對戰 • 9人不重複)
+        <!-- 按鈕 1：正常對戰 -->
+        <button onclick="LobbyManager.startGame('normal')" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 active:scale-95 text-slate-950 font-black rounded-2xl text-base shadow-lg transition">
+          開始遊戲 (正常對戰)
         </button>
 
-        <button onclick="LobbyManager.openTestSetupModal()" class="w-full py-2.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/60 active:scale-95 text-emerald-300 font-bold rounded-xl text-xs shadow transition flex items-center justify-center gap-1.5">
-          <span>🏛️ 角色測試模式 (唯一地圖：立法院 / 自選電腦)</span>
+        <!-- 按鈕 2：原本的測試模式 (無縮圈 / 無NPC / 22區全開) -->
+        <button onclick="LobbyManager.startGame('sandbox')" class="w-full py-2.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/60 active:scale-95 text-emerald-300 font-bold rounded-xl text-xs shadow transition flex items-center justify-center gap-2">
+          <span>測試模式 (無縮圈 / 無NPC)</span>
+        </button>
+
+        <!-- 按鈕 3：新增的角色測試模式 (唯一地圖：立法院 + 自選電腦) -->
+        <button onclick="LobbyManager.openTestSetupModal()" class="w-full py-2.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/60 active:scale-95 text-indigo-300 font-bold rounded-xl text-xs shadow transition flex items-center justify-center gap-2">
+          <span>🏛️ 角色測試模式 (立法院 / 自選電腦)</span>
         </button>
       </div>
 
       <div class="text-[10px] text-slate-600">
-        MVP v0.58 • 9 Characters & Legislative Yuan Sandbox
+        MVP v0.58 • 90s Fast Pace & True Battle Royale AI
       </div>
 
       <!-- 角色測試模式設定彈窗 (選擇要放入立法院的電腦) -->
@@ -187,8 +194,8 @@
         <div>
           <div class="flex justify-between items-center border-b border-slate-800 pb-2">
             <div>
-              <h3 class="text-base font-black text-emerald-400">🏛️ 角色測試模式 (立法院)</h3>
-              <p class="text-[10px] text-slate-400">此模式僅開放「立法院」單一地圖，點選要放入的電腦對手：</p>
+              <h3 class="text-base font-black text-indigo-400">🏛️ 角色測試模式 (唯一地圖：立法院)</h3>
+              <p class="text-[10px] text-slate-400">點選要放進「立法院」的電腦對手（可選多個或全部不放）：</p>
             </div>
             <button onclick="LobbyManager.closeTestSetupModal()" class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">✕</button>
           </div>
@@ -202,7 +209,7 @@
         </div>
 
         <div class="space-y-2 pt-2 border-t border-slate-800">
-          <button onclick="LobbyManager.startGame(true)" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black rounded-xl text-sm shadow-lg transition">
+          <button onclick="LobbyManager.startGame('char_test')" class="w-full py-3 bg-indigo-500 hover:bg-indigo-400 active:scale-95 text-white font-black rounded-xl text-sm shadow-lg transition">
             ⚔️ 進入【立法院】開始測試
           </button>
         </div>
@@ -218,6 +225,9 @@
         <!-- 探索面板 -->
         <div id="explore-panel" 
              onclick="triggerSearch()"
+             ondragover="handleDragOverYellow(event)" 
+             ondragleave="handleDragLeaveYellow(event)" 
+             ondrop="handleDropToYellow(event)" 
              class="flex-1 flex flex-col justify-between bg-slate-800/40 hover:bg-slate-800/70 border-2 border-amber-500/30 hover:border-amber-500/60 rounded-xl p-3 relative transition cursor-pointer select-none">
           
           <div class="flex justify-between items-start border-b border-slate-700/60 pb-1.5 gap-1">
@@ -232,7 +242,7 @@
                 <h2 id="zone-title" class="text-lg font-black text-white tracking-wide truncate">🏛️ 立法院</h2>
                 <span id="current-zone-alert-pill" class="hidden text-[10px] font-black px-1.5 py-0.5 rounded animate-pulse"></span>
               </div>
-              <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5 truncate">同區角色：載入中</p>
+              <p id="zone-drops" class="text-[10px] text-slate-400 mt-0.5 truncate">可搜刮物資：載入中</p>
             </div>
 
             <button id="main-map-btn" onclick="event.stopPropagation(); openMapModal();" class="flex-shrink-0 relative px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:scale-95 border-2 border-amber-500/80 rounded-xl flex flex-col items-center justify-center shadow-md transition">
@@ -297,6 +307,9 @@
 
         <!-- 角色狀態與裝備區 -->
         <div id="drop-zone-red" 
+             ondragover="handleDragOverRed(event)" 
+             ondragleave="handleDragLeaveRed(event)" 
+             ondrop="handleDropToRed(event)" 
              class="flex gap-2 items-stretch border-2 border-rose-500/30 hover:border-rose-500/60 rounded-xl p-1 bg-slate-950/40 transition relative">
           
           <div class="w-2/3 bg-slate-950 p-2 rounded-lg border border-slate-800 flex flex-col justify-between">
@@ -361,7 +374,7 @@
             <h3 class="text-base font-black text-white flex items-center gap-1.5">
               <span>📖 台灣生存全物資圖鑑</span>
             </h3>
-            <p class="text-[10px] text-slate-400">舊物資已清空，等待新設計</p>
+            <p class="text-[10px] text-slate-400">收錄全島所有基礎材料、裝備、美食與神裝配方</p>
           </div>
           <button onclick="closeCraftBookModal()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold border border-slate-700">
             關閉 X
@@ -380,7 +393,7 @@
         <div id="craft-recipes-list" class="flex-1 overflow-y-auto space-y-2 py-2 pr-1 custom-scrollbar"></div>
 
         <div class="text-[10px] text-slate-500 text-center pt-1 border-t border-slate-800">
-          目前物資池已清空，隨時可重新配置！
+          點擊任意物資可查看詳細幹話、產地與上下位合成樹！
         </div>
       </div>
 
@@ -404,21 +417,36 @@
         </div>
       </div>
 
-      <!-- 物品詳細資訊彈窗 -->
+      <!-- 物品詳細資訊與上下位合成樹檢視彈窗 (100% 復原) -->
       <div id="item-info-modal" onclick="closeItemInfoModal(event)" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-xs z-50 flex items-center justify-center p-6">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-[320px] rounded-2xl p-5 shadow-2xl space-y-3 text-left" onclick="event.stopPropagation()">
+          <div class="flex justify-between items-start border-b border-slate-800 pb-2.5">
+            <div>
+              <div id="info-item-category" class="text-[10px] font-mono text-indigo-400 uppercase tracking-widest">裝備部位</div>
+              <div id="info-item-name" class="text-base font-black text-amber-400 mt-0.5">物品名稱</div>
+            </div>
+            <div id="info-item-stat" class="text-xs font-mono font-bold px-2 py-1 bg-slate-800 rounded border border-slate-700 text-emerald-400">+8 攻</div>
+          </div>
+
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80">
+            <div class="text-[10px] text-slate-500 font-bold mb-0.5">【戰術情報與幹話】</div>
+            <div id="info-item-desc" class="text-xs text-slate-300 leading-relaxed italic">描述資訊</div>
+          </div>
+
+          <div id="info-buttons-container" class="space-y-2"></div>
+
           <button onclick="closeItemInfoModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold transition">
             返回
           </button>
         </div>
       </div>
 
-      <!-- 🗺️ 直式台北生存島地圖 -->
+      <!-- 🗺️ 直式台北生存島地圖 (100% 復原) -->
       <div id="map-modal" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md z-40 flex flex-col justify-between p-3 pt-4 pb-3 overflow-hidden">
         <div class="flex justify-between items-center pb-2 px-1">
           <div>
             <h3 class="text-sm font-black text-white flex items-center gap-1">
-              <span>🗺️ 台北生存島</span>
+              <span>🗺️ 台北生存島 (22區全覽)</span>
             </h3>
             <p id="map-target-hint" class="text-[10px] text-amber-400 font-bold">點擊島嶼地標直接前往 (-5 體力)</p>
           </div>
@@ -430,7 +458,8 @@
         <div id="map-nodes-container" class="flex-1 w-full relative overflow-hidden"></div>
 
         <div class="bg-slate-900/90 border border-slate-800 rounded-lg py-1.5 px-2.5 mt-2 text-[10px] text-slate-400 flex justify-between items-center">
-          <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-sky-500 border border-white text-[8px] text-white flex items-center justify-center font-black">你</span> <span>目前位置</span></div>
+          <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-sky-500 border border-white text-[8px] text-white flex items-center justify-center font-black">1</span> <span>目前位置</span></div>
+          <div class="flex items-center gap-1"><span class="text-amber-400 font-bold">⭐ 目標產地</span></div>
           <div class="flex items-center gap-1"><span class="bg-amber-500 text-slate-950 px-1 rounded-xs font-black text-[8px]">⚠️</span> <span>即將縮圈</span></div>
           <div class="flex items-center gap-1"><span class="text-rose-500">🚫 禁區</span></div>
         </div>
@@ -466,7 +495,7 @@
     }
   </script>
 
-  <!-- 🔗 模組引入清單 (全面升級為 ?v=58) -->
+  <!-- 🔗 模組引入清單 -->
   <script src="items_weapon.js?v=58"></script>
   <script src="items_armor.js?v=58"></script>
   <script src="items_material.js?v=58"></script>
